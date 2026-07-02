@@ -60,4 +60,21 @@
   <div class="card-title">Current Balance (Right Now)</div>
   <div class="amt pos" style="font-size:22px;">₹{{ '%.2f'|format(current_balance) }}</div>
 </div>
+
+<div class="card">
+  <div class="card-title">Event Reports</div>
+  {% for e in events %}
+  <a href="{{ url_for('event_report', event_id=e.id) }}" style="text-decoration:none;color:inherit;">
+    <div class="list-row">
+      <div>
+        <div class="main">&#127881; {{ e.name }}</div>
+        <div class="sub">{{ e.event_date }}</div>
+      </div>
+      <div class="small-link">View →</div>
+    </div>
+  </a>
+  {% else %}
+  <div class="empty-state">No events yet.</div>
+  {% endfor %}
+</div>
 {% endblock %}

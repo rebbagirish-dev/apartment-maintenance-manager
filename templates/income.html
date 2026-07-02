@@ -13,6 +13,7 @@
   <div class="stat-box"><div class="num" style="color:var(--amber)">₹{{ '%.0f'|format(total_unpaid) }}</div><div class="lbl">Pending Dues</div></div>
 </div>
 
+{% if session.role in ['admin', 'manager'] %}
 <div class="card">
   <div class="card-title">Generate Monthly Maintenance Dues</div>
   <form method="POST" action="{{ url_for('generate_month_income') }}">
@@ -50,6 +51,7 @@
     <button class="btn block" type="submit">+ Save Income Entry</button>
   </form>
 </div>
+{% endif %}
 
 <div class="card">
   <div class="card-title">{{ month_label }} — {{ tx|length }} entries</div>
@@ -65,7 +67,7 @@
       <span class="badge {{ t.status }}">{{ t.status }}</span>
     </div>
   </div>
-  {% if t.status != 'paid' %}
+  {% if t.status != 'paid' and session.role in ['admin', 'manager'] %}
   <form method="POST" action="{{ url_for('mark_income_paid', tx_id=t.id) }}" style="margin:6px 0 10px;">
     <input type="hidden" name="paid_date" value="{{ today }}">
     <button class="btn sm" type="submit">Mark Paid</button>

@@ -9,17 +9,21 @@
   <div class="row"><span>Contributions ₹{{ '%.0f'|format(total_contrib) }}</span><span>Expenses ₹{{ '%.0f'|format(total_exp) }}</span></div>
 </div>
 
+<a href="{{ url_for('event_report', event_id=event.id) }}" class="btn secondary block" style="margin-bottom:12px;">
+  &#128202; View Collection &amp; Expense Report
+</a>
+
+{% if session.role in ['admin', 'manager'] %}
 <div class="card">
-  <div class="card-title">Add Contribution</div>
+  <div class="card-title">Add Contribution (Flat Members Only)</div>
   <form method="POST" action="{{ url_for('add_event_contribution', event_id=event.id) }}">
     <div class="form-group">
-      <label>Flat (optional)</label>
-      <select name="flat_id">
-        <option value="">-- Not flat-linked --</option>
+      <label>Flat</label>
+      <select name="flat_id" required>
+        <option value="">-- Select flat --</option>
         {% for f in flats %}<option value="{{ f.id }}">{{ f.flat_no }}</option>{% endfor %}
       </select>
     </div>
-    <div class="form-group"><label>Contributor Name (if not a flat)</label><input name="contributor_name" placeholder="Optional"></div>
     <div class="two-col">
       <div class="form-group"><label>Amount ₹</label><input name="amount" type="number" step="0.01" required></div>
       <div class="form-group"><label>Date</label><input type="date" name="date" value="{{ today }}" required></div>
@@ -41,21 +45,24 @@
     <button class="btn block" type="submit">+ Add Expense</button>
   </form>
 </div>
+{% endif %}
 
 <div class="card">
   <div class="card-title">Contributions ({{ contributions|length }})</div>
   {% for c in contributions %}
   <div class="list-row">
     <div>
-      <div class="main">{{ c.flat_no if c.flat_id else (c.contributor_name or 'Anonymous') }}</div>
+      <div class="main">Flat {{ c.flat_no }}</div>
       <div class="sub">{{ c.date }}{% if c.remarks %} · {{ c.remarks }}{% endif %}</div>
     </div>
     <div class="amt pos">+₹{{ '%.2f'|format(c.amount) }}</div>
   </div>
+  {% if session.role in ['admin', 'manager'] %}
   <form method="POST" action="{{ url_for('delete_event_contribution', c_id=c.id) }}" style="margin:0 0 8px;"
     onsubmit="return confirm('Delete this contribution?');">
     <button class="btn sm danger" type="submit">Delete</button>
   </form>
+  {% endif %}
   {% else %}
   <div class="empty-state">No contributions yet.</div>
   {% endfor %}
@@ -71,10 +78,12 @@
     </div>
     <div class="amt neg">-₹{{ '%.2f'|format(x.amount) }}</div>
   </div>
+  {% if session.role in ['admin', 'manager'] %}
   <form method="POST" action="{{ url_for('delete_event_expense', x_id=x.id) }}" style="margin:0 0 8px;"
     onsubmit="return confirm('Delete this expense?');">
     <button class="btn sm danger" type="submit">Delete</button>
   </form>
+  {% endif %}
   {% else %}
   <div class="empty-state">No expenses yet.</div>
   {% endfor %}

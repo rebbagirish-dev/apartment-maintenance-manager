@@ -12,6 +12,7 @@
   <div class="stat-box"><div class="num" style="color:var(--red)">₹{{ '%.2f'|format(total) }}</div><div class="lbl">Total Spent — {{ month_label }}</div></div>
 </div>
 
+{% if session.role in ['admin', 'manager'] %}
 <div class="card">
   <div class="card-title">Add Expense</div>
   <form method="POST" action="{{ url_for('add_expense') }}">
@@ -30,6 +31,7 @@
     <button class="btn block" type="submit">+ Save Expense</button>
   </form>
 </div>
+{% endif %}
 
 <div class="card">
   <div class="card-title">{{ month_label }} — {{ tx|length }} entries</div>
@@ -41,10 +43,12 @@
     </div>
     <div class="amt neg">-₹{{ '%.2f'|format(t.amount) }}</div>
   </div>
+  {% if session.role in ['admin', 'manager'] %}
   <form method="POST" action="{{ url_for('delete_expense', tx_id=t.id) }}" style="margin:0 0 8px;"
     onsubmit="return confirm('Delete this expense?');">
     <button class="btn sm danger" type="submit">Delete</button>
   </form>
+  {% endif %}
   {% else %}
   <div class="empty-state"><div class="icon">&#128200;</div>No expenses recorded for this month.</div>
   {% endfor %}

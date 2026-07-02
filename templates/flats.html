@@ -3,6 +3,7 @@
 {% block header_title %}Master Data{% endblock %}
 {% block content %}
 
+{% if session.role in ['admin', 'manager'] %}
 <div class="tabs">
   <a href="{{ url_for('flats') }}" class="active">Flats</a>
   <a href="{{ url_for('income_types') }}">Income Types</a>
@@ -23,6 +24,9 @@
     <button class="btn block" type="submit">+ Add Flat</button>
   </form>
 </div>
+{% else %}
+<h2 class="page-title">Flats ({{ flats|length }})</h2>
+{% endif %}
 
 {% for f in flats %}
 <div class="card">
@@ -36,6 +40,7 @@
     </div>
     <div class="amt">₹{{ '%.0f'|format(f.maintenance_amount) }}/mo</div>
   </div>
+  {% if session.role in ['admin', 'manager'] %}
   <details>
     <summary class="small-link">Edit / Manage</summary>
     <form method="POST" action="{{ url_for('edit_flat', flat_id=f.id) }}" style="margin-top:10px;">
@@ -60,6 +65,7 @@
       </div>
     </form>
   </details>
+  {% endif %}
 </div>
 {% else %}
 <div class="empty-state"><div class="icon">&#127968;</div>No flats added yet.</div>

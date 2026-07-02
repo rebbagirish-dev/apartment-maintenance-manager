@@ -37,6 +37,49 @@ def admin_required(view):
     return wrapped
 
 
+# ---------------------------------------------------------------------------
+# Role-based portal access
+#
+#   admin / manager -> full access, full read-write, everywhere
+#   owner           -> can VIEW everything (dashboard, income, expenses,
+#                       watchman, events, reports) but strictly read-only;
+#                       no access to master data (Users / Income Types /
+#                       Expense Types)
+#   tenant          -> access is limited to the Reports section only (read-only)
+# ---------------------------------------------------------------------------
+
+TENANT_ALLOWED_ENDPOINTS = {
+    'reports', 'export_report', 'event_report', 'export_event_report',
+    'logout', 'static', 'manifest', 'service_worker',
+}
+OWNER_BLOCKED_ENDPOINTS = {
+    'users', 'delete_user', 'income_types', 'delete_income_type',
+    'expense_types', 'delete_expense_type',
+}
+
+
+@app.before_request
+def enforce_role_access():
+    if 'user_id' not in session:
+        return  # login_required on individual views handles this
+    role = session.get('role')
+    endpoint = request.endpoint
+    if endpoint is None:
+        return
+
+    if role == 'tenant' and endpoint not in TENANT_ALLOWED_ENDPOINTS:
+        flash('Your account only has access to the Reports section.', 'error')
+        return redirect(url_for('reports'))
+
+    if role == 'owner':
+        if endpoint in OWNER_BLOCKED_ENDPOINTS:
+            flash("That section isn't available for your account.", 'error')
+            return redirect(url_for('dashboard'))
+        if request.method == 'POST':
+            flash('Your account has view-only access.', 'error')
+            return redirect(request.referrer or url_for('dashboard'))
+
+
 def current_month():
     return date.today().strftime('%Y-%m')
 
@@ -152,6 +195,8 @@ def login():
             session['role'] = user['role']
             session['name'] = user.get('name', user['username'])
             flash(f"Welcome back, {user.get('name', user['username'])}!", 'success')
+            if user['role'] == 'tenant':
+                return redirect(url_for('reports'))
             return redirect(request.args.get('next') or url_for('dashboard'))
         flash('Invalid username or password.', 'error')
     return render_template('login.html')
@@ -248,15 +293,23 @@ def users():
         if any(u['username'] == username for u in db.load('users')):
             flash('Username already exists.', 'error')
         else:
+            role = request.form.get('role', 'manager')
+            flat_id = request.form.get('flat_id')
             db.insert('users', {
                 'username': username,
                 'password_hash': generate_password_hash(request.form['password']),
                 'name': request.form.get('name', '').strip() or username,
-                'role': request.form.get('role', 'manager'),
+                'role': role,
+                'flat_id': int(flat_id) if flat_id and role in ('owner', 'tenant') else None,
             })
             flash('User created.', 'success')
         return redirect(url_for('users'))
-    return render_template('users.html', users=db.load('users'))
+    flats_list = {f['id']: f['flat_no'] for f in db.load('flats')}
+    all_users = db.load('users')
+    for u in all_users:
+        u['flat_no'] = flats_list.get(u.get('flat_id'))
+    return render_template('users.html', users=all_users,
+                            flats=sorted(db.load('flats'), key=lambda f: f['flat_no']))
 
 
 @app.route('/users/<int:user_id>/delete', methods=['POST'])
@@ -509,7 +562,8 @@ def reports():
         trend.append({'ym': m, 'label': month_label(m), 'income': r['total_income'],
                        'expense': r['total_expense'], 'net': r['net']})
     return render_template('reports.html', report=report, trend=trend, ym=ym,
-                            current_balance=overall_balance())
+                            current_balance=overall_balance(),
+                            events=sorted(db.load('events'), key=lambda e: e.get('event_date', ''), reverse=True))
 
 
 @app.route('/reports/export/<ym>')
@@ -591,14 +645,84 @@ def event_detail(event_id):
                             today=date.today().isoformat())
 
 
+@app.route('/events/<int:event_id>/report')
+@login_required
+def event_report(event_id):
+    event = db.get('events', event_id)
+    if not event:
+        flash('Event not found.', 'error')
+        return redirect(url_for('events'))
+    flats_list = db.load('flats')
+    contributions = [c for c in db.load('event_contributions') if c['event_id'] == event_id]
+    for c in contributions:
+        c['flat_no'] = lookup(flats_list, c.get('flat_id'), 'flat_no', c.get('contributor_name') or '-')
+    contributions.sort(key=lambda x: x['flat_no'])
+    exp = [x for x in db.load('event_expenses') if x['event_id'] == event_id]
+    exp.sort(key=lambda x: x['date'])
+    total_contrib = sum(to_float(c['amount']) for c in contributions)
+    total_exp = sum(to_float(x['amount']) for x in exp)
+
+    # who has NOT contributed yet, for a complete collection picture
+    contributed_flat_ids = {c.get('flat_id') for c in contributions}
+    not_contributed = [f for f in flats_list
+                        if f.get('status', 'active') == 'active' and f['id'] not in contributed_flat_ids]
+
+    return render_template('event_report.html', event=event, contributions=contributions,
+                            expenses=exp, total_contrib=total_contrib, total_exp=total_exp,
+                            balance=total_contrib - total_exp,
+                            not_contributed=sorted(not_contributed, key=lambda f: f['flat_no']))
+
+
+@app.route('/events/<int:event_id>/report/export')
+@login_required
+def export_event_report(event_id):
+    event = db.get('events', event_id)
+    if not event:
+        flash('Event not found.', 'error')
+        return redirect(url_for('events'))
+    flats_list = db.load('flats')
+    contributions = [c for c in db.load('event_contributions') if c['event_id'] == event_id]
+    for c in contributions:
+        c['flat_no'] = lookup(flats_list, c.get('flat_id'), 'flat_no', c.get('contributor_name') or '-')
+    contributions.sort(key=lambda x: x['flat_no'])
+    exp = [x for x in db.load('event_expenses') if x['event_id'] == event_id]
+    exp.sort(key=lambda x: x['date'])
+    total_contrib = sum(to_float(c['amount']) for c in contributions)
+    total_exp = sum(to_float(x['amount']) for x in exp)
+
+    lines = [f"Event Report - {event['name']} ({event.get('event_date', '')})", ""]
+    lines.append("CONTRIBUTIONS")
+    lines.append("Flat,Date,Amount,Remarks")
+    for c in contributions:
+        remarks = (c.get('remarks') or '').replace(',', ';')
+        lines.append(f"{c['flat_no']},{c['date']},{c['amount']:.2f},{remarks}")
+    lines.append(f"Total Collected,,{total_contrib:.2f},")
+    lines.append("")
+    lines.append("EXPENSES")
+    lines.append("Date,Description,Amount,Paid To")
+    for x in exp:
+        desc = (x.get('description') or '').replace(',', ';')
+        paid_to = (x.get('paid_to') or '').replace(',', ';')
+        lines.append(f"{x['date']},{desc},{x['amount']:.2f},{paid_to}")
+    lines.append(f"Total Spent,,{total_exp:.2f},")
+    lines.append("")
+    lines.append(f"Net Balance,,{(total_contrib - total_exp):.2f},")
+    csv_data = "\n".join(lines)
+    safe_name = event['name'].replace(' ', '_')
+    return Response(csv_data, mimetype='text/csv',
+                     headers={'Content-Disposition': f'attachment; filename=event_report_{safe_name}.csv'})
+
+
 @app.route('/events/<int:event_id>/contribution', methods=['POST'])
 @login_required
 def add_event_contribution(event_id):
     flat_id = request.form.get('flat_id')
+    if not flat_id:
+        flash('Please select the flat contributing.', 'error')
+        return redirect(url_for('event_detail', event_id=event_id))
     db.insert('event_contributions', {
         'event_id': event_id,
-        'flat_id': int(flat_id) if flat_id else None,
-        'contributor_name': request.form.get('contributor_name', '').strip(),
+        'flat_id': int(flat_id),
         'amount': to_float(request.form.get('amount')),
         'date': request.form.get('date', date.today().isoformat()),
         'remarks': request.form.get('remarks', '').strip(),
@@ -657,8 +781,8 @@ def delete_event_expense(x_id):
 @app.route('/manifest.json')
 def manifest():
     return jsonify({
-        "name": "Apartment Maintenance Manager",
-        "short_name": "AptManager",
+        "name": "Sucasa Windgates - Apartment Manager",
+        "short_name": "Sucasa Windgates",
         "start_url": "/",
         "display": "standalone",
         "background_color": "#0f172a",

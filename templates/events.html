@@ -3,6 +3,7 @@
 {% block header_title %}Events{% endblock %}
 {% block content %}
 
+{% if session.role in ['admin', 'manager'] %}
 <div class="card">
   <div class="card-title">Create New Event</div>
   <form method="POST">
@@ -12,6 +13,7 @@
     <button class="btn block" type="submit">+ Create Event</button>
   </form>
 </div>
+{% endif %}
 
 {% for e in events %}
 <a href="{{ url_for('event_detail', event_id=e.id) }}" style="text-decoration:none;color:inherit;">

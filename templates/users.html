@@ -12,34 +12,60 @@
 
 <div class="card">
   <div class="card-title">Add User</div>
-  <form method="POST">
+  <form method="POST" id="userForm">
     <div class="form-group"><label>Full Name</label><input name="name" required></div>
     <div class="form-group"><label>Username</label><input name="username" required></div>
     <div class="form-group"><label>Password</label><input name="password" type="password" required></div>
     <div class="form-group">
       <label>Role</label>
-      <select name="role">
-        <option value="manager">Manager (can record data)</option>
-        <option value="admin">Admin (full access)</option>
+      <select name="role" id="roleSelect" onchange="toggleFlatField()">
+        <option value="manager">Manager (staff — can record data)</option>
+        <option value="admin">Admin (staff — full access)</option>
+        <option value="owner">Owner (flat owner — view access + Reports)</option>
+        <option value="tenant">Tenant (flat tenant — Reports access only)</option>
+      </select>
+    </div>
+    <div class="form-group" id="flatField" style="display:none;">
+      <label>Which Flat?</label>
+      <select name="flat_id">
+        <option value="">-- Select flat --</option>
+        {% for f in flats %}<option value="{{ f.id }}">{{ f.flat_no }}</option>{% endfor %}
       </select>
     </div>
     <button class="btn block" type="submit">+ Create User</button>
   </form>
 </div>
+<script>
+function toggleFlatField() {
+  var role = document.getElementById('roleSelect').value;
+  document.getElementById('flatField').style.display = (role === 'owner' || role === 'tenant') ? 'block' : 'none';
+}
+</script>
 
 <div class="card">
   <div class="card-title">All Users ({{ users|length }})</div>
   {% for u in users %}
   <div class="list-row">
     <div>
-      <div class="main">{{ u.name }} <span class="badge {{ 'recurring' if u.role=='admin' else 'onetime' }}">{{ u.role }}</span></div>
-      <div class="sub">@{{ u.username }}</div>
+      <div class="main">{{ u.name }}
+        <span class="badge {{ 'recurring' if u.role in ['admin','owner'] else 'onetime' }}">{{ u.role }}</span>
+      </div>
+      <div class="sub">@{{ u.username }}{% if u.flat_no %} · Flat {{ u.flat_no }}{% endif %}</div>
     </div>
     <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}"
-      onclick="return confirm('Remove this user?');">
+      onsubmit="return confirm('Remove this user?');">
       <button class="btn sm danger" type="submit">Delete</button>
     </form>
   </div>
   {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-title">Access Levels</div>
+  <div class="sub">
+    <b>Admin / Manager</b> — full access to everything.<br><br>
+    <b>Owner</b> — can view Home, Income, Expenses, Watchman &amp; Events, plus Reports — all view-only (no adding/editing/deleting). No access to Users, Income Types or Expense Types.<br><br>
+    <b>Tenant</b> — access limited to the Reports section only (view-only).
+  </div>
 </div>
 {% endblock %}

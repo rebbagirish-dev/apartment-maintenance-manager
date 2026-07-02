@@ -6,13 +6,14 @@
   <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="AptManager">
+  <meta name="apple-mobile-web-app-title" content="Sucasa Windgates">
   <link rel="manifest" href="{{ url_for('manifest') }}">
-  <title>{% block title %}Apartment Manager{% endblock %}</title>
+  <title>{% block title %}SUCASA WINDGATES{% endblock %} · Apartment Manager</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
   <div class="app-shell">
+    <div class="brand-bar">SUCASA WINDGATES</div>
     <div class="app-header">
       <span>{% block header_title %}Apartment Manager{% endblock %}</span>
       {% if session.user_id %}
@@ -32,7 +33,7 @@
       {% block content %}{% endblock %}
     </div>
 
-    {% if session.user_id %}
+    {% if session.user_id and session.role != 'tenant' %}
     <div class="bottom-nav">
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">
         <span class="icon">&#127968;</span>Home
@@ -46,7 +47,7 @@
       <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' }}">
         <span class="icon">&#128202;</span>Reports
       </a>
-      <a href="{{ url_for('events') }}" class="{{ 'active' if request.endpoint in ['events','event_detail'] }}">
+      <a href="{{ url_for('events') }}" class="{{ 'active' if request.endpoint in ['events','event_detail','event_report'] }}">
         <span class="icon">&#127881;</span>Events
       </a>
     </div>

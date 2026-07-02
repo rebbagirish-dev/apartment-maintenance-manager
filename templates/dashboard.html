@@ -31,6 +31,7 @@
   </div>
 </div>
 
+{% if session.role in ['admin', 'manager'] %}
 <div class="card">
   <div class="card-title">Quick Actions</div>
   <div class="two-col" style="margin-bottom:8px;">
@@ -42,6 +43,7 @@
     <a href="{{ url_for('watchman') }}" class="btn secondary sm block">Watchman Ledger</a>
   </div>
 </div>
+{% endif %}
 
 <div class="card">
   <div class="card-title">Recent Expenses</div>
@@ -60,5 +62,10 @@
   {% endif %}
 </div>
 
+{% if session.role in ['admin', 'manager'] %}
 <a href="{{ url_for('flats') }}" class="small-link">Manage Flats &amp; Master Data →</a>
+{% else %}
+<a href="{{ url_for('flats') }}" class="small-link">View Flats →</a><br><br>
+<a href="{{ url_for('reports') }}" class="small-link">View Reports →</a>
+{% endif %}
 {% endblock %}

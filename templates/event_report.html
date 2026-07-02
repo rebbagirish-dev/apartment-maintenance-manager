@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}{{ event.name }} Report{% endblock %}
+{% block header_title %}<a href="{{ url_for('event_detail', event_id=event.id) if session.role in ['admin','manager','owner'] else url_for('events') }}" style="margin-right:8px;">&#8592;</a>Event Report{% endblock %}
+{% block content %}
+
+<div class="balance-card" style="background:linear-gradient(135deg,#7c3aed,#db2777);">
+  <div class="label">{{ event.name }} · {{ event.event_date }}</div>
+  <div class="amount">₹{{ '%.2f'|format(balance) }}</div>
+  <div class="row"><span>Collected ₹{{ '%.0f'|format(total_contrib) }}</span><span>Spent ₹{{ '%.0f'|format(total_exp) }}</span></div>
+</div>
+
+<a href="{{ url_for('export_event_report', event_id=event.id) }}" class="btn secondary block" style="margin-bottom:12px;">
+  Download CSV Report
+</a>
+
+<div class="card">
+  <div class="card-title">Collected From ({{ contributions|length }} flats)</div>
+  <table class="report-table">
+    {% for c in contributions %}
+    <tr><td>Flat {{ c.flat_no }} <span class="sub">{{ c.date }}</span></td><td>₹{{ '%.2f'|format(c.amount) }}</td></tr>
+    {% else %}
+    <tr><td colspan="2">No contributions recorded yet.</td></tr>
+    {% endfor %}
+    <tr><td><b>Total Collected</b></td><td><b>₹{{ '%.2f'|format(total_contrib) }}</b></td></tr>
+  </table>
+</div>
+
+{% if not_contributed %}
+<div class="card">
+  <div class="card-title">Flats Yet to Contribute ({{ not_contributed|length }})</div>
+  {% for f in not_contributed %}
+  <span class="badge unpaid" style="margin:0 6px 6px 0; display:inline-block;">{{ f.flat_no }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">Expenses ({{ expenses|length }})</div>
+  <table class="report-table">
+    {% for x in expenses %}
+    <tr><td>{{ x.description }} <span class="sub">{{ x.date }}{% if x.paid_to %} · {{ x.paid_to }}{% endif %}</span></td><td>₹{{ '%.2f'|format(x.amount) }}</td></tr>
+    {% else %}
+    <tr><td colspan="2">No expenses recorded yet.</td></tr>
+    {% endfor %}
+    <tr><td><b>Total Spent</b></td><td><b>₹{{ '%.2f'|format(total_exp) }}</b></td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-title">Net Balance</div>
+  <div class="amt {{ 'pos' if balance >= 0 else 'neg' }}" style="font-size:22px;">₹{{ '%.2f'|format(balance) }}</div>
+</div>
+{% endblock %}

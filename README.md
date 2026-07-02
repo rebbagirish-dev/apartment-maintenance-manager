@@ -21,7 +21,12 @@ no database server required, fully human-readable, easy to back up (just copy th
 - **Monthly Income & Expense report**: opening balance → income → expenses → closing balance, which automatically becomes next month's opening balance (carry-forward)
 - **CSV export** of any month's report
 - **6-month trend view**
-- **Events module**: create an event, collect contributions (linked to a flat or any contributor), log event expenses, see live event balance — completely separate from the main society ledger
+- **Events module**: create an event, collect contributions (must be linked to a flat — no anonymous entries), log event expenses, see live event balance, and a dedicated **Event Report** showing exactly how much each flat contributed and what was spent — completely separate from the main society ledger
+- **Four user roles**:
+  - **Admin** — full access to everything, including Users
+  - **Manager** — full access to everything except Users management
+  - **Owner** — a flat owner's login; can **view** Home, Income, Expenses, Watchman & Events, plus the **Reports** section — all view-only (no adding/editing/deleting). No access to Users, Income Types, or Expense Types.
+  - **Tenant** — a flat tenant's login; access is limited to the **Reports** section only (view-only)
 - **Multi-user with roles** (admin / manager)
 - **Mobile app look & feel**: bottom tab bar, card-based UI, installable to your phone's home screen (PWA)
 

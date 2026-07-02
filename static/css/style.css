@@ -15,6 +15,7 @@
   --border: #e5e7eb;
   --radius: 16px;
   --nav-height: 62px;
+  --brand-height: 30px;
   --header-height: 56px;
 }
 
@@ -37,9 +38,21 @@ html, body {
   padding-bottom: calc(var(--nav-height) + 16px);
 }
 
+/* ---- Brand banner (always visible, every screen) ---- */
+.brand-bar {
+  position: sticky; top: 0; z-index: 31;
+  height: var(--brand-height);
+  background: #1e1b4b;
+  color: #eef2ff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
 /* ---- Top header ---- */
 .app-header {
-  position: sticky; top: 0; z-index: 30;
+  position: sticky; top: var(--brand-height); z-index: 30;
   height: var(--header-height);
   background: var(--primary);
   color: #fff;

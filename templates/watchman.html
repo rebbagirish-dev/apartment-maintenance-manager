@@ -8,6 +8,7 @@
   <div class="amount">₹{{ '%.2f'|format(outstanding) }}</div>
 </div>
 
+{% if session.role in ['admin', 'manager'] %}
 <div class="card">
   <div class="card-title">Add Entry</div>
   <form method="POST" action="{{ url_for('add_watchman_entry') }}">
@@ -26,6 +27,7 @@
     <button class="btn block" type="submit">+ Save</button>
   </form>
 </div>
+{% endif %}
 
 <div class="card">
   <div class="card-title">Ledger ({{ ledger|length }} entries)</div>
@@ -39,10 +41,12 @@
       {{ '-' if e.type == 'advance' else '+' }}₹{{ '%.2f'|format(e.amount) }}
     </div>
   </div>
+  {% if session.role in ['admin', 'manager'] %}
   <form method="POST" action="{{ url_for('delete_watchman_entry', entry_id=e.id) }}" style="margin:0 0 8px;"
     onsubmit="return confirm('Delete this entry?');">
     <button class="btn sm danger" type="submit">Delete</button>
   </form>
+  {% endif %}
   {% else %}
   <div class="empty-state"><div class="icon">&#128737;</div>No entries yet.</div>
   {% endfor %}
