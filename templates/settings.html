@@ -47,8 +47,10 @@
   </div>
 </div>
 <script>
-initMenu('masterMenu');
-initCollapsibleCard('openingBalanceCard');
+document.addEventListener('DOMContentLoaded', function() {
+  initMenu('masterMenu');
+  initCollapsibleCard('openingBalanceCard');
+});
 </script>
 {% else %}
 <div class="card">

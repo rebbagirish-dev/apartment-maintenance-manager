@@ -79,7 +79,9 @@
       <button class="btn sm block" type="submit">Save Changes</button>
     </form>
     <script>
-    toggleFlatField('editRole{{ u.id }}', 'editFlat{{ u.id }}');
+    document.addEventListener('DOMContentLoaded', function() {
+      toggleFlatField('editRole{{ u.id }}', 'editFlat{{ u.id }}');
+    });
     </script>
   </details>
   {% else %}
@@ -101,8 +103,10 @@ function toggleFlatField(roleSelectId, flatFieldId) {
   var role = document.getElementById(roleSelectId).value;
   document.getElementById(flatFieldId).style.display = (role === 'owner' || role === 'tenant') ? 'block' : 'none';
 }
-initCollapsibleCard('userCreateCard');
-initMenu('masterMenu');
-toggleFlatField('roleSelect', 'flatField');
+document.addEventListener('DOMContentLoaded', function() {
+  initCollapsibleCard('userCreateCard');
+  initMenu('masterMenu');
+  toggleFlatField('roleSelect', 'flatField');
+});
 </script>
 {% endblock %}
