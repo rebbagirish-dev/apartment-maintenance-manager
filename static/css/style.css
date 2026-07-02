@@ -15,8 +15,8 @@
   --border: #e5e7eb;
   --radius: 16px;
   --nav-height: 62px;
-  --brand-height: 30px;
-  --header-height: 56px;
+  --brand-height: 58px;
+  --header-height: 42px;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -45,9 +45,23 @@ html, body {
   background: #1e1b4b;
   color: #eef2ff;
   display: flex; align-items: center; justify-content: center;
-  font-size: 11.5px;
+  font-size: 19px;
   font-weight: 800;
   letter-spacing: 0.14em;
+  position: sticky;
+  overflow: hidden;
+}
+.brand-bar .watermark {
+  position: absolute;
+  right: 16px;
+  bottom: 4px;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: normal;
+  color: #eef2ff;
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 /* ---- Top header ---- */
@@ -59,7 +73,7 @@ html, body {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 16px;
   font-weight: 600;
-  font-size: 17px;
+  font-size: 15px;
   box-shadow: 0 2px 8px rgba(79,70,229,0.25);
 }
 .app-header a { color: #fff; text-decoration: none; display: flex; align-items: center; }

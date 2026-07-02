@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from functools import wraps
 
 from flask import (Flask, render_template, request, redirect, url_for,
@@ -12,6 +12,12 @@ from seed import seed
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me-in-production')
 
+# Sessions time out after 20 minutes of inactivity. Flask refreshes the
+# cookie's expiry on every request by default, so this behaves as an idle
+# timeout rather than a fixed 20-minute cutoff from login.
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=20)
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+
 seed()  # make sure default data exists
 
 # ---------------------------------------------------------------------------
@@ -22,6 +28,7 @@ def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if 'user_id' not in session:
+            flash('Your session has expired. Please log in again.', 'error')
             return redirect(url_for('login', next=request.path))
         return view(*args, **kwargs)
     return wrapped
@@ -224,6 +231,7 @@ def login():
         users = db.load('users')
         user = next((u for u in users if u['username'] == username), None)
         if user and check_password_hash(user['password_hash'], password):
+            session.permanent = True
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['role'] = user['role']
@@ -534,6 +542,17 @@ def mark_income_paid(tx_id):
         'paid_date': request.form.get('paid_date', date.today().isoformat()),
     })
     flash('Marked as paid.', 'success')
+    return redirect(request.referrer or url_for('income'))
+
+
+@app.route('/income/<int:tx_id>/mark-unpaid', methods=['POST'])
+@login_required
+def mark_income_unpaid(tx_id):
+    db.update('income_tx', tx_id, {
+        'status': 'unpaid',
+        'paid_date': None,
+    })
+    flash('Marked as unpaid.', 'success')
     return redirect(request.referrer or url_for('income'))
 
 

@@ -67,10 +67,14 @@
       <span class="badge {{ t.status }}">{{ t.status }}</span>
     </div>
   </div>
-  {% if t.status != 'paid' and session.role in ['admin', 'manager'] %}
-  <form method="POST" action="{{ url_for('mark_income_paid', tx_id=t.id) }}" style="margin:6px 0 10px;">
+  {% if session.role in ['admin', 'manager'] %}
+  <form method="POST" action="{{ url_for('mark_income_paid', tx_id=t.id) if t.status != 'paid' else url_for('mark_income_unpaid', tx_id=t.id) }}" style="margin:6px 0 10px;">
     <input type="hidden" name="paid_date" value="{{ today }}">
-    <button class="btn sm" type="submit">Mark Paid</button>
+    {% if t.status != 'paid' %}
+      <button class="btn sm" type="submit">Mark Paid</button>
+    {% else %}
+      <button class="btn sm secondary" type="submit">Mark Unpaid</button>
+    {% endif %}
     <button class="btn sm danger" type="submit" formaction="{{ url_for('delete_income', tx_id=t.id) }}"
       onclick="return confirm('Delete this entry?');">Delete</button>
   </form>
