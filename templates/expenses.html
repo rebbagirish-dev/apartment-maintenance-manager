@@ -13,9 +13,14 @@
 </div>
 
 {% if session.role in ['admin', 'manager'] %}
-<div class="card">
-  <div class="card-title">Add Expense</div>
-  <form method="POST" action="{{ url_for('add_expense') }}">
+<div class="card collapsible-card" id="expenseEntryCard">
+  <div class="card-header">
+    <div class="card-title">Add Expense</div>
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+  </div>
+  <form method="POST" action="{{ url_for('add_expense') }}" data-collapsible-body hidden>
     <div class="two-col">
       <div class="form-group"><label>Date</label><input type="date" name="date" value="{{ today }}" required></div>
       <div class="form-group"><label>Amount ₹</label><input name="amount" type="number" step="0.01" required></div>
@@ -31,6 +36,9 @@
     <button class="btn block" type="submit">+ Save Expense</button>
   </form>
 </div>
+<script>
+initCollapsibleCard('expenseEntryCard');
+</script>
 {% endif %}
 
 <div class="card">

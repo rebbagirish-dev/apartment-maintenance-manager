@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#16a34a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Sucasa Windgates">
@@ -22,13 +22,15 @@
     </div>
 
     <div class="content">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          {% for category, message in messages %}
-            <div class="flash {{ category }}">{{ message }}</div>
-          {% endfor %}
-        {% endif %}
-      {% endwith %}
+      {% block flash_messages %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+      {% endblock %}
 
       {% block content %}{% endblock %}
     </div>
@@ -54,6 +56,51 @@
     {% endif %}
   </div>
   <script>
+    function initCollapsibleCard(cardId) {
+      var card = document.getElementById(cardId);
+      if (!card) return;
+      var button = card.querySelector('[data-collapsible-toggle]');
+      var body = card.querySelector('[data-collapsible-body]');
+      var icon = card.querySelector('[data-collapsible-icon]');
+      if (!button || !body || !icon) return;
+      function sync() {
+        var expanded = button.getAttribute('aria-expanded') === 'true';
+        body.hidden = !expanded;
+        icon.textContent = expanded ? '-' : '+';
+      }
+      button.addEventListener('click', function() {
+        var expanded = button.getAttribute('aria-expanded') === 'true';
+        button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        sync();
+      });
+      sync();
+    }
+
+    function initMenu(menuId) {
+      var menu = document.getElementById(menuId);
+      if (!menu) return;
+      var button = menu.querySelector('.master-menu-toggle');
+      var items = menu.querySelector('.master-menu-items');
+      if (!button || !items) return;
+      function sync() {
+        var expanded = button.getAttribute('aria-expanded') === 'true';
+        items.hidden = !expanded;
+      }
+      button.addEventListener('click', function(event) {
+        event.stopPropagation();
+        var expanded = button.getAttribute('aria-expanded') === 'true';
+        button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        sync();
+      });
+      document.addEventListener('click', function(event) {
+        if (!menu.contains(event.target)) {
+          button.setAttribute('aria-expanded', 'false');
+          sync();
+        }
+      });
+      sync();
+    }
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(function(){});
     }

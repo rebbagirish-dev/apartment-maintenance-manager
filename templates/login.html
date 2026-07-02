@@ -1,11 +1,19 @@
 {% extends 'base.html' %}
 {% block title %}Login{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <div class="login-wrap">
   <div class="login-card">
     <div class="login-logo">&#127968;</div>
     <div class="login-title">Sucasa Windgates</div>
-    <div class="login-sub">Apartment Maintenance Portal — Sign in to continue</div>
+    <div class="login-sub">Apartment Maintenance Portal - Sign in to continue</div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     <form method="POST">
       <div class="form-group">
         <label>Username</label>

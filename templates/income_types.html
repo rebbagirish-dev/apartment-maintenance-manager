@@ -3,22 +3,25 @@
 {% block header_title %}Master Data{% endblock %}
 {% block content %}
 
-<div class="tabs">
-  <a href="{{ url_for('flats') }}">Flats</a>
-  <a href="{{ url_for('income_types') }}" class="active">Income Types</a>
-  <a href="{{ url_for('expense_types') }}">Expense Types</a>
-  {% if session.role == 'admin' %}<a href="{{ url_for('users') }}">Users</a>{% endif %}
-  <a href="{{ url_for('settings_page') }}">Opening Balance</a>
-</div>
+{% include '_master_menu.html' %}
 
-<div class="card">
-  <div class="card-title">Add Income Type</div>
-  <form method="POST">
+<div class="card collapsible-card" id="incomeTypeCard">
+  <div class="card-header">
+    <div class="card-title">Add Income Type</div>
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+  </div>
+  <form method="POST" data-collapsible-body hidden>
     <div class="form-group"><label>Name</label><input name="name" required placeholder="e.g. Parking Charges"></div>
     <div class="form-group"><label>Description</label><input name="description" placeholder="Optional"></div>
     <button class="btn block" type="submit">+ Add</button>
   </form>
 </div>
+<script>
+initMenu('masterMenu');
+initCollapsibleCard('incomeTypeCard');
+</script>
 
 <div class="card">
   <div class="card-title">All Income Types ({{ income_types|length }})</div>

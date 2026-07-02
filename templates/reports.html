@@ -8,6 +8,33 @@
   <input type="month" name="month" value="{{ ym }}" onchange="this.form.submit()" style="width:auto;">
 </form>
 
+{% if resident_flat and resident_summary %}
+<div class="card">
+  <div class="card-title">Your Flat - {{ resident_flat.flat_no }}</div>
+  <table class="report-table">
+    <tr><td>{{ report.label }} total due</td><td>₹{{ '%.2f'|format(resident_summary.month_total) }}</td></tr>
+    <tr><td>Paid this month</td><td style="color:var(--green)">₹{{ '%.2f'|format(resident_summary.month_paid) }}</td></tr>
+    <tr><td>Pending this month</td><td style="color:var(--amber)">₹{{ '%.2f'|format(resident_summary.month_unpaid) }}</td></tr>
+    <tr><td><b>Total outstanding dues</b></td><td><b>₹{{ '%.2f'|format(resident_summary.outstanding_total) }}</b></td></tr>
+  </table>
+  <div class="card-title" style="margin-top:14px;">Recent Flat Entries</div>
+  {% for t in resident_summary.recent_tx %}
+  <div class="list-row">
+    <div>
+      <div class="main">{{ t.type_name }}</div>
+      <div class="sub">{{ t.for_month or '-' }}{% if t.paid_date %} · Paid {{ t.paid_date }}{% endif %}</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="amt pos">₹{{ '%.2f'|format(t.amount) }}</div>
+      <span class="badge {{ t.status }}">{{ t.status }}</span>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">No entries for your flat yet.</div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="card">
   <div class="card-title">Summary</div>
   <table class="report-table">
@@ -19,6 +46,21 @@
   </table>
   <a href="{{ url_for('export_report', ym=ym) }}" class="btn secondary block" style="margin-top:12px;">Download CSV Report</a>
 </div>
+
+{% if report.unpaid_by_flat %}
+<div class="card">
+  <div class="card-title">Flats Yet to Pay Maintenance ({{ report.unpaid_by_flat|length }})</div>
+  {% for due in report.unpaid_by_flat %}
+  <div class="list-row">
+    <div>
+      <div class="main">Flat {{ due.flat_no }}</div>
+      <div class="sub">{{ due.type_name }}{% if due.owner_name %} · {{ due.owner_name }}{% endif %}{% if due.remarks %} · {{ due.remarks }}{% endif %}</div>
+    </div>
+    <div class="amt neg">₹{{ '%.2f'|format(due.amount) }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 
 <div class="card">
   <div class="card-title">Income by Type</div>

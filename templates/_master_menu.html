@@ -1,0 +1,15 @@
+<div class="master-menu" id="masterMenu">
+  <button type="button" class="master-menu-toggle" aria-expanded="false" aria-controls="masterMenuItems">
+    <span class="master-menu-icon">&#9776;</span>
+    <span>Master Menu</span>
+  </button>
+  <div class="master-menu-items" id="masterMenuItems" hidden>
+    <a href="{{ url_for('flats') }}" class="{{ 'active' if request.endpoint == 'flats' }}">Flats</a>
+    <a href="{{ url_for('income_types') }}" class="{{ 'active' if request.endpoint == 'income_types' }}">Income Types</a>
+    <a href="{{ url_for('expense_types') }}" class="{{ 'active' if request.endpoint == 'expense_types' }}">Expense Types</a>
+    {% if session.role == 'admin' %}
+    <a href="{{ url_for('users') }}" class="{{ 'active' if request.endpoint in ['users', 'edit_user'] }}">Users</a>
+    {% endif %}
+    <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' }}">Opening Balance</a>
+  </div>
+</div>

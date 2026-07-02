@@ -13,6 +13,23 @@
   Download CSV Report
 </a>
 
+{% if resident_flat %}
+<div class="card">
+  <div class="card-title">Your Flat - {{ resident_flat.flat_no }}</div>
+  {% if resident_contribution %}
+  <div class="list-row">
+    <div>
+      <div class="main">Contribution received</div>
+      <div class="sub">{{ resident_contribution.date }}{% if resident_contribution.remarks %} · {{ resident_contribution.remarks }}{% endif %}</div>
+    </div>
+    <div class="amt pos">₹{{ '%.2f'|format(resident_contribution.amount) }}</div>
+  </div>
+  {% else %}
+  <div class="empty-state">Your flat is still pending for this event.</div>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="card">
   <div class="card-title">Collected From ({{ contributions|length }} flats)</div>
   <table class="report-table">

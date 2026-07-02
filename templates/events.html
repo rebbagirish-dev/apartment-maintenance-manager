@@ -4,15 +4,23 @@
 {% block content %}
 
 {% if session.role in ['admin', 'manager'] %}
-<div class="card">
-  <div class="card-title">Create New Event</div>
-  <form method="POST">
+<div class="card collapsible-card" id="eventCreateCard">
+  <div class="card-header">
+    <div class="card-title">Create New Event</div>
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+  </div>
+  <form method="POST" data-collapsible-body hidden>
     <div class="form-group"><label>Event Name</label><input name="name" required placeholder="e.g. Diwali Celebration"></div>
     <div class="form-group"><label>Date</label><input type="date" name="event_date" required></div>
     <div class="form-group"><label>Description</label><input name="description" placeholder="Optional"></div>
     <button class="btn block" type="submit">+ Create Event</button>
   </form>
 </div>
+<script>
+initCollapsibleCard('eventCreateCard');
+</script>
 {% endif %}
 
 {% for e in events %}

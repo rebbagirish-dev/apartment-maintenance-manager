@@ -3,27 +3,26 @@
 {% block header_title %}Master Data{% endblock %}
 {% block content %}
 
-<div class="tabs">
-  <a href="{{ url_for('flats') }}">Flats</a>
-  <a href="{{ url_for('income_types') }}">Income Types</a>
-  <a href="{{ url_for('expense_types') }}">Expense Types</a>
-  <a href="{{ url_for('users') }}" class="active">Users</a>
-  <a href="{{ url_for('settings_page') }}">Opening Balance</a>
-</div>
+{% include '_master_menu.html' %}
 
-<div class="card">
-  <div class="card-title">Add User</div>
-  <form method="POST" id="userForm">
+<div class="card collapsible-card" id="userCreateCard">
+  <div class="card-header">
+    <div class="card-title">Add User</div>
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+  </div>
+  <form method="POST" id="userForm" data-collapsible-body hidden>
     <div class="form-group"><label>Full Name</label><input name="name" required></div>
     <div class="form-group"><label>Username</label><input name="username" required></div>
     <div class="form-group"><label>Password</label><input name="password" type="password" required></div>
     <div class="form-group">
       <label>Role</label>
-      <select name="role" id="roleSelect" onchange="toggleFlatField()">
-        <option value="manager">Manager (staff — can record data)</option>
-        <option value="admin">Admin (staff — full access)</option>
-        <option value="owner">Owner (flat owner — view access + Reports)</option>
-        <option value="tenant">Tenant (flat tenant — Reports access only)</option>
+      <select name="role" id="roleSelect" onchange="toggleFlatField('roleSelect', 'flatField')">
+        <option value="manager">Manager (staff - can record data)</option>
+        <option value="admin">Admin (staff - full access)</option>
+        <option value="owner">Owner (flat owner - view access + Reports)</option>
+        <option value="tenant">Tenant (flat tenant - Reports access only)</option>
       </select>
     </div>
     <div class="form-group" id="flatField" style="display:none;">
@@ -36,12 +35,6 @@
     <button class="btn block" type="submit">+ Create User</button>
   </form>
 </div>
-<script>
-function toggleFlatField() {
-  var role = document.getElementById('roleSelect').value;
-  document.getElementById('flatField').style.display = (role === 'owner' || role === 'tenant') ? 'block' : 'none';
-}
-</script>
 
 <div class="card">
   <div class="card-title">All Users ({{ users|length }})</div>
@@ -51,22 +44,65 @@ function toggleFlatField() {
       <div class="main">{{ u.name }}
         <span class="badge {{ 'recurring' if u.role in ['admin','owner'] else 'onetime' }}">{{ u.role }}</span>
       </div>
-      <div class="sub">@{{ u.username }}{% if u.flat_no %} · Flat {{ u.flat_no }}{% endif %}</div>
+      <div class="sub">@{{ u.username }}{% if u.flat_no %} - Flat {{ u.flat_no }}{% endif %}</div>
     </div>
-    <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}"
-      onsubmit="return confirm('Remove this user?');">
-      <button class="btn sm danger" type="submit">Delete</button>
-    </form>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn sm secondary" type="button" onclick="document.getElementById('user-edit-{{ u.id }}').open = !document.getElementById('user-edit-{{ u.id }}').open;">Edit</button>
+      <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}"
+        onsubmit="return confirm('Remove this user?');">
+        <button class="btn sm danger" type="submit">Delete</button>
+      </form>
+    </div>
   </div>
+  <details id="user-edit-{{ u.id }}">
+    <summary class="small-link">Edit user details</summary>
+    <form method="POST" action="{{ url_for('edit_user', user_id=u.id) }}" style="margin-top:10px;">
+      <div class="form-group"><label>Full Name</label><input name="name" value="{{ u.name }}" required></div>
+      <div class="form-group"><label>Username</label><input name="username" value="{{ u.username }}" required></div>
+      <div class="form-group"><label>New Password (optional)</label><input name="password" type="password" placeholder="Leave blank to keep current password"></div>
+      <div class="form-group">
+        <label>Role</label>
+        <select name="role" id="editRole{{ u.id }}" onchange="toggleFlatField('editRole{{ u.id }}', 'editFlat{{ u.id }}')">
+          <option value="manager" {{ 'selected' if u.role == 'manager' }}>Manager (staff - can record data)</option>
+          <option value="admin" {{ 'selected' if u.role == 'admin' }}>Admin (staff - full access)</option>
+          <option value="owner" {{ 'selected' if u.role == 'owner' }}>Owner (flat owner - view access + Reports)</option>
+          <option value="tenant" {{ 'selected' if u.role == 'tenant' }}>Tenant (flat tenant - Reports access only)</option>
+        </select>
+      </div>
+      <div class="form-group" id="editFlat{{ u.id }}" style="display:none;">
+        <label>Which Flat?</label>
+        <select name="flat_id">
+          <option value="">-- Select flat --</option>
+          {% for f in flats %}<option value="{{ f.id }}" {{ 'selected' if u.flat_id == f.id }}>{{ f.flat_no }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn sm block" type="submit">Save Changes</button>
+    </form>
+    <script>
+    toggleFlatField('editRole{{ u.id }}', 'editFlat{{ u.id }}');
+    </script>
+  </details>
+  {% else %}
+  <div class="empty-state">No users yet.</div>
   {% endfor %}
 </div>
 
 <div class="card">
   <div class="card-title">Access Levels</div>
   <div class="sub">
-    <b>Admin / Manager</b> — full access to everything.<br><br>
-    <b>Owner</b> — can view Home, Income, Expenses, Watchman &amp; Events, plus Reports — all view-only (no adding/editing/deleting). No access to Users, Income Types or Expense Types.<br><br>
-    <b>Tenant</b> — access limited to the Reports section only (view-only).
+    <b>Admin / Manager</b> - full access to everything.<br><br>
+    <b>Owner</b> - can view Home, Income, Expenses, Watchman &amp; Events, plus Reports - all view-only (no adding/editing/deleting). No access to Users, Income Types or Expense Types.<br><br>
+    <b>Tenant</b> - access limited to the Reports section only (view-only).
   </div>
 </div>
+
+<script>
+function toggleFlatField(roleSelectId, flatFieldId) {
+  var role = document.getElementById(roleSelectId).value;
+  document.getElementById(flatFieldId).style.display = (role === 'owner' || role === 'tenant') ? 'block' : 'none';
+}
+initCollapsibleCard('userCreateCard');
+initMenu('masterMenu');
+toggleFlatField('roleSelect', 'flatField');
+</script>
 {% endblock %}

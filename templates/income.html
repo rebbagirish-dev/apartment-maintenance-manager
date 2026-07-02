@@ -13,18 +13,35 @@
   <div class="stat-box"><div class="num" style="color:var(--amber)">₹{{ '%.0f'|format(total_unpaid) }}</div><div class="lbl">Pending Dues</div></div>
 </div>
 
-{% if session.role in ['admin', 'manager'] %}
+{% if resident_flat %}
 <div class="card">
-  <div class="card-title">Generate Monthly Maintenance Dues</div>
-  <form method="POST" action="{{ url_for('generate_month_income') }}">
+  <div class="card-title">Showing Flat {{ resident_flat.flat_no }} Only</div>
+  <div class="sub">This resident view is filtered to your assigned flat and stays read-only.</div>
+</div>
+{% endif %}
+
+{% if session.role in ['admin', 'manager'] %}
+<div class="card collapsible-card" id="generateDuesCard">
+  <div class="card-header">
+    <div class="card-title">Generate Monthly Maintenance Dues</div>
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+  </div>
+  <form method="POST" action="{{ url_for('generate_month_income') }}" data-collapsible-body hidden>
     <div class="form-group"><label>For Month</label><input type="month" name="month" value="{{ ym }}" required></div>
     <button class="btn secondary block" type="submit">Generate Dues for All Active Flats</button>
   </form>
 </div>
 
-<div class="card">
-  <div class="card-title">Record an Income Entry</div>
-  <form method="POST" action="{{ url_for('add_income') }}">
+<div class="card collapsible-card" id="incomeEntryCard">
+  <div class="card-header">
+    <div class="card-title">Record an Income Entry</div>
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+  </div>
+  <form method="POST" action="{{ url_for('add_income') }}" data-collapsible-body hidden>
     <div class="form-group">
       <label>Flat</label>
       <select name="flat_id" required>
@@ -51,6 +68,10 @@
     <button class="btn block" type="submit">+ Save Income Entry</button>
   </form>
 </div>
+<script>
+initCollapsibleCard('generateDuesCard');
+initCollapsibleCard('incomeEntryCard');
+</script>
 {% endif %}
 
 <div class="card">

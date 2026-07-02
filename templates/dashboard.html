@@ -35,6 +35,27 @@
   </div>
 </div>
 
+{% if resident_flat and resident_summary %}
+<div class="card">
+  <div class="card-title">Your Flat - {{ resident_flat.flat_no }}</div>
+  <div class="list-row">
+    <div>
+      <div class="main">{{ report.label }} dues</div>
+      <div class="sub">{{ resident_flat.owner_name or resident_flat.tenant_name or 'Resident account' }}</div>
+    </div>
+    <div class="amt {{ 'neg' if resident_summary.month_unpaid else 'pos' }}">₹{{ '%.2f'|format(resident_summary.month_total) }}</div>
+  </div>
+  <div class="list-row">
+    <div class="main">Pending this month</div>
+    <div class="amt {{ 'neg' if resident_summary.month_unpaid else 'pos' }}">₹{{ '%.2f'|format(resident_summary.month_unpaid) }}</div>
+  </div>
+  <div class="list-row">
+    <div class="main">Total outstanding</div>
+    <div class="amt {{ 'neg' if resident_summary.outstanding_total else 'pos' }}">₹{{ '%.2f'|format(resident_summary.outstanding_total) }}</div>
+  </div>
+</div>
+{% endif %}
+
 {% if session.role in ['admin', 'manager'] %}
 <div class="card">
   <div class="card-title">Quick Actions</div>

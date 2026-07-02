@@ -28,7 +28,9 @@ def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if 'user_id' not in session:
-            flash('Your session has expired. Please log in again.', 'error')
+            if session:
+                flash('Your session has expired. Please log in again.', 'error')
+                session.clear()
             return redirect(url_for('login', next=request.path))
         return view(*args, **kwargs)
     return wrapped
@@ -60,7 +62,7 @@ TENANT_ALLOWED_ENDPOINTS = {
     'logout', 'static', 'manifest', 'service_worker',
 }
 OWNER_BLOCKED_ENDPOINTS = {
-    'users', 'delete_user', 'income_types', 'delete_income_type',
+    'users', 'edit_user', 'delete_user', 'income_types', 'delete_income_type',
     'expense_types', 'delete_expense_type', 'settings_page',
 }
 
@@ -122,6 +124,43 @@ def get_settings():
             'opening_corpus_fund_date': date.today().isoformat(),
         })]
     return records[0]
+
+
+def current_user_record():
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    return db.get('users', user_id)
+
+
+def current_user_flat():
+    user = current_user_record()
+    if not user or user.get('role') not in ('owner', 'tenant'):
+        return None
+    flat_id = user.get('flat_id')
+    if not flat_id:
+        return None
+    return db.get('flats', flat_id)
+
+
+def resident_due_summary(flat_id, ym):
+    income_types = db.load('income_types')
+    tx = [t for t in db.load('income_tx') if t.get('flat_id') == flat_id]
+    for t in tx:
+        t['type_name'] = lookup(income_types, t['income_type_id'])
+    tx.sort(key=lambda x: (x.get('for_month') or '', x.get('paid_date') or ''), reverse=True)
+
+    month_tx = [t for t in tx if t.get('for_month') == ym]
+    unpaid_all = [t for t in tx if t.get('status') != 'paid']
+
+    return {
+        'month_total': sum(to_float(t['amount']) for t in month_tx),
+        'month_paid': sum(to_float(t['amount']) for t in month_tx if t.get('status') == 'paid'),
+        'month_unpaid': sum(to_float(t['amount']) for t in month_tx if t.get('status') != 'paid'),
+        'outstanding_total': sum(to_float(t['amount']) for t in unpaid_all),
+        'outstanding_count': len(unpaid_all),
+        'recent_tx': tx[:6],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +226,7 @@ def month_report(ym):
     expense_tx = [t for t in db.load('expense_tx') if t['date'][:7] == ym]
     income_types = db.load('income_types')
     expense_types = db.load('expense_types')
+    flats = db.load('flats')
 
     income_by_type = {}
     for t in income_tx:
@@ -205,6 +245,16 @@ def month_report(ym):
 
     # unpaid dues for the month
     unpaid = [t for t in db.load('income_tx') if t.get('for_month') == ym and t.get('status') != 'paid']
+    unpaid_by_flat = []
+    for t in sorted(unpaid, key=lambda x: lookup(flats, x.get('flat_id'), 'flat_no', '')):
+        unpaid_by_flat.append({
+            'flat_id': t.get('flat_id'),
+            'flat_no': lookup(flats, t.get('flat_id'), 'flat_no', '-'),
+            'owner_name': lookup(flats, t.get('flat_id'), 'owner_name', ''),
+            'amount': to_float(t.get('amount')),
+            'type_name': lookup(income_types, t.get('income_type_id')),
+            'remarks': t.get('remarks', ''),
+        })
 
     return {
         'ym': ym, 'label': month_label(ym),
@@ -215,6 +265,7 @@ def month_report(ym):
         'income_tx': sorted(income_tx, key=lambda x: x.get('paid_date', '')),
         'expense_tx': sorted(expense_tx, key=lambda x: x['date']),
         'unpaid_dues': unpaid,
+        'unpaid_by_flat': unpaid_by_flat,
         'unpaid_total': sum(to_float(t['amount']) for t in unpaid),
     }
 
@@ -271,10 +322,14 @@ def dashboard():
     for e in recent_expenses:
         e['type_name'] = lookup(expense_types, e['expense_type_id'])
 
+    resident_flat = current_user_flat()
+    resident_summary = resident_due_summary(resident_flat['id'], ym) if resident_flat else None
+
     return render_template('dashboard.html', balance=balance, report=report,
                             flat_count=len(active_flats), watchman_due=watchman_due,
                             recent_expenses=recent_expenses, ym=ym,
-                            corpus=corpus_fund_balance())
+                            corpus=corpus_fund_balance(), resident_flat=resident_flat,
+                            resident_summary=resident_summary)
 
 
 @app.route('/settings', methods=['GET', 'POST'])
@@ -403,6 +458,43 @@ def users():
                             flats=sorted(db.load('flats'), key=lambda f: f['flat_no']))
 
 
+@app.route('/users/<int:user_id>/edit', methods=['POST'])
+@login_required
+@admin_required
+def edit_user(user_id):
+    user = db.get('users', user_id)
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('users'))
+
+    username = request.form.get('username', '').strip()
+    role = request.form.get('role', user.get('role', 'manager'))
+    flat_id = request.form.get('flat_id')
+    if not username:
+        flash('Username is required.', 'error')
+        return redirect(url_for('users'))
+
+    existing = next((u for u in db.load('users') if u['username'] == username and u['id'] != user_id), None)
+    if existing:
+        flash('Username already exists.', 'error')
+        return redirect(url_for('users'))
+
+    updates = {
+        'name': request.form.get('name', '').strip() or username,
+        'username': username,
+        'role': role,
+        'flat_id': int(flat_id) if flat_id and role in ('owner', 'tenant') else None,
+    }
+
+    password = request.form.get('password', '')
+    if password:
+        updates['password_hash'] = generate_password_hash(password)
+
+    db.update('users', user_id, updates)
+    flash('User updated.', 'success')
+    return redirect(url_for('users'))
+
+
 @app.route('/users/<int:user_id>/delete', methods=['POST'])
 @login_required
 @admin_required
@@ -473,18 +565,22 @@ def income():
     ym = request.args.get('month', current_month())
     flats_list = {f['id']: f for f in db.load('flats')}
     income_types_list = db.load('income_types')
+    resident_flat = current_user_flat()
     tx = [t for t in db.load('income_tx') if t.get('for_month') == ym]
+    if resident_flat:
+        tx = [t for t in tx if t.get('flat_id') == resident_flat['id']]
     for t in tx:
         t['flat_no'] = flats_list.get(t['flat_id'], {}).get('flat_no', '-')
         t['type_name'] = lookup(income_types_list, t['income_type_id'])
     tx.sort(key=lambda x: x['flat_no'])
     total_paid = sum(to_float(t['amount']) for t in tx if t['status'] == 'paid')
     total_unpaid = sum(to_float(t['amount']) for t in tx if t['status'] != 'paid')
+    visible_flats = [resident_flat] if resident_flat else sorted(db.load('flats'), key=lambda f: f['flat_no'])
     return render_template('income.html', tx=tx, ym=ym, month_label=month_label(ym),
-                            flats=sorted(db.load('flats'), key=lambda f: f['flat_no']),
+                            flats=visible_flats,
                             income_types=income_types_list,
                             total_paid=total_paid, total_unpaid=total_unpaid,
-                            today=date.today().isoformat())
+                            today=date.today().isoformat(), resident_flat=resident_flat)
 
 
 @app.route('/income/generate-month', methods=['POST'])
@@ -663,9 +759,12 @@ def reports():
         r = month_report(m)
         trend.append({'ym': m, 'label': month_label(m), 'income': r['total_income'],
                        'expense': r['total_expense'], 'net': r['net']})
+    resident_flat = current_user_flat()
+    resident_summary = resident_due_summary(resident_flat['id'], ym) if resident_flat else None
     return render_template('reports.html', report=report, trend=trend, ym=ym,
                             current_balance=overall_balance(),
-                            events=sorted(db.load('events'), key=lambda e: e.get('event_date', ''), reverse=True))
+                            events=sorted(db.load('events'), key=lambda e: e.get('event_date', ''), reverse=True),
+                            resident_flat=resident_flat, resident_summary=resident_summary)
 
 
 @app.route('/reports/export/<ym>')
@@ -741,10 +840,15 @@ def event_detail(event_id):
     exp.sort(key=lambda x: x['date'], reverse=True)
     total_contrib = sum(to_float(c['amount']) for c in contributions)
     total_exp = sum(to_float(x['amount']) for x in exp)
+    resident_flat = current_user_flat()
+    resident_contributions = []
+    if resident_flat:
+        resident_contributions = [c for c in contributions if c.get('flat_id') == resident_flat['id']]
     return render_template('event_detail.html', event=event, contributions=contributions,
                             expenses=exp, total_contrib=total_contrib, total_exp=total_exp,
                             balance=total_contrib - total_exp, flats=sorted(flats_list, key=lambda f: f['flat_no']),
-                            today=date.today().isoformat())
+                            today=date.today().isoformat(), resident_flat=resident_flat,
+                            resident_contributions=resident_contributions)
 
 
 @app.route('/events/<int:event_id>/report')
@@ -763,6 +867,10 @@ def event_report(event_id):
     exp.sort(key=lambda x: x['date'])
     total_contrib = sum(to_float(c['amount']) for c in contributions)
     total_exp = sum(to_float(x['amount']) for x in exp)
+    resident_flat = current_user_flat()
+    resident_contribution = None
+    if resident_flat:
+        resident_contribution = next((c for c in contributions if c.get('flat_id') == resident_flat['id']), None)
 
     # who has NOT contributed yet, for a complete collection picture
     contributed_flat_ids = {c.get('flat_id') for c in contributions}
@@ -772,7 +880,8 @@ def event_report(event_id):
     return render_template('event_report.html', event=event, contributions=contributions,
                             expenses=exp, total_contrib=total_contrib, total_exp=total_exp,
                             balance=total_contrib - total_exp,
-                            not_contributed=sorted(not_contributed, key=lambda f: f['flat_no']))
+                            not_contributed=sorted(not_contributed, key=lambda f: f['flat_no']),
+                            resident_flat=resident_flat, resident_contribution=resident_contribution)
 
 
 @app.route('/events/<int:event_id>/report/export')

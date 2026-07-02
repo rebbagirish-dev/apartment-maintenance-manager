@@ -4,17 +4,16 @@
 {% block content %}
 
 {% if session.role in ['admin', 'manager'] %}
-<div class="tabs">
-  <a href="{{ url_for('flats') }}" class="active">Flats</a>
-  <a href="{{ url_for('income_types') }}">Income Types</a>
-  <a href="{{ url_for('expense_types') }}">Expense Types</a>
-  {% if session.role == 'admin' %}<a href="{{ url_for('users') }}">Users</a>{% endif %}
-  <a href="{{ url_for('settings_page') }}">Opening Balance</a>
-</div>
+{% include '_master_menu.html' %}
 
-<div class="card">
-  <div class="card-title">Total Flats: {{ flats|length }}</div>
-  <form method="POST" action="{{ url_for('flats') }}">
+<div class="card collapsible-card" id="flatCreateCard">
+  <div class="card-header">
+    <div class="card-title">Total Flats: {{ flats|length }}</div>
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+  </div>
+  <form method="POST" action="{{ url_for('flats') }}" data-collapsible-body hidden>
     <div class="two-col">
       <div class="form-group"><label>Flat No.</label><input name="flat_no" required placeholder="A-101"></div>
       <div class="form-group"><label>Maintenance ₹/mo</label><input name="maintenance_amount" type="number" step="0.01" required></div>
@@ -25,6 +24,10 @@
     <button class="btn block" type="submit">+ Add Flat</button>
   </form>
 </div>
+<script>
+initMenu('masterMenu');
+initCollapsibleCard('flatCreateCard');
+</script>
 {% else %}
 <h2 class="page-title">Flats ({{ flats|length }})</h2>
 {% endif %}
