@@ -54,7 +54,7 @@ TENANT_ALLOWED_ENDPOINTS = {
 }
 OWNER_BLOCKED_ENDPOINTS = {
     'users', 'delete_user', 'income_types', 'delete_income_type',
-    'expense_types', 'delete_expense_type',
+    'expense_types', 'delete_expense_type', 'settings_page',
 }
 
 
@@ -105,39 +105,73 @@ def to_float(v, default=0.0):
         return default
 
 
+def get_settings():
+    records = db.load('settings')
+    if not records:
+        records = [db.insert('settings', {
+            'opening_balance': 0.0,
+            'opening_balance_date': date.today().isoformat(),
+            'opening_corpus_fund': 0.0,
+            'opening_corpus_fund_date': date.today().isoformat(),
+        })]
+    return records[0]
+
+
 # ---------------------------------------------------------------------------
 # Core financial calculations
 # ---------------------------------------------------------------------------
 
 def overall_balance():
-    """Cash-in-hand balance at this exact moment (all time)."""
-    income_tx = db.load('income_tx')
-    expense_tx = db.load('expense_tx')
-    watchman = db.load('watchman_ledger')
+    """Cash-in-hand balance at this exact moment (all time), including the
+    one-time opening balance recorded by the admin for pre-app history."""
+    settings = get_settings()
+    ob = to_float(settings.get('opening_balance'))
+    ob_date = settings.get('opening_balance_date') or '0000-01-01'
 
-    total_income = sum(to_float(t['amount']) for t in income_tx if t.get('status') == 'paid')
-    total_expense = sum(to_float(t['amount']) for t in expense_tx)
-    advances = sum(to_float(t['amount']) for t in watchman if t['type'] == 'advance')
-    recoveries = sum(to_float(t['amount']) for t in watchman if t['type'] == 'recovery')
-    watchman_outstanding = advances - recoveries
-
-    return total_income - total_expense - watchman_outstanding
-
-
-def balance_before_month(ym):
-    """Cash balance as of the last moment before the 1st of the given month."""
     income_tx = db.load('income_tx')
     expense_tx = db.load('expense_tx')
     watchman = db.load('watchman_ledger')
 
     total_income = sum(to_float(t['amount']) for t in income_tx
-                        if t.get('status') == 'paid' and t.get('paid_date', '9999-99') < f"{ym}-01")
-    total_expense = sum(to_float(t['amount']) for t in expense_tx if t['date'] < f"{ym}-01")
+                        if t.get('status') == 'paid' and (t.get('paid_date') or '') >= ob_date)
+    total_expense = sum(to_float(t['amount']) for t in expense_tx if t['date'] >= ob_date)
+    advances = sum(to_float(t['amount']) for t in watchman if t['type'] == 'advance' and t['date'] >= ob_date)
+    recoveries = sum(to_float(t['amount']) for t in watchman if t['type'] == 'recovery' and t['date'] >= ob_date)
+    watchman_outstanding = advances - recoveries
+
+    return ob + total_income - total_expense - watchman_outstanding
+
+
+def corpus_fund_balance():
+    settings = get_settings()
+    opening = to_float(settings.get('opening_corpus_fund'))
+    log = db.load('corpus_fund_log')
+    added = sum(to_float(e['amount']) for e in log if e['type'] == 'add')
+    withdrawn = sum(to_float(e['amount']) for e in log if e['type'] == 'withdraw')
+    return opening + added - withdrawn
+
+
+def balance_before_month(ym):
+    """Cash balance as of the last moment before the 1st of the given month,
+    including the recorded opening balance."""
+    settings = get_settings()
+    ob = to_float(settings.get('opening_balance'))
+    ob_date = settings.get('opening_balance_date') or '0000-01-01'
+
+    income_tx = db.load('income_tx')
+    expense_tx = db.load('expense_tx')
+    watchman = db.load('watchman_ledger')
+
+    total_income = sum(to_float(t['amount']) for t in income_tx
+                        if t.get('status') == 'paid'
+                        and ob_date <= (t.get('paid_date') or '9999-99') < f"{ym}-01")
+    total_expense = sum(to_float(t['amount']) for t in expense_tx
+                         if ob_date <= t['date'] < f"{ym}-01")
     advances = sum(to_float(t['amount']) for t in watchman
-                   if t['type'] == 'advance' and t['date'] < f"{ym}-01")
+                   if t['type'] == 'advance' and ob_date <= t['date'] < f"{ym}-01")
     recoveries = sum(to_float(t['amount']) for t in watchman
-                      if t['type'] == 'recovery' and t['date'] < f"{ym}-01")
-    return total_income - total_expense - (advances - recoveries)
+                      if t['type'] == 'recovery' and ob_date <= t['date'] < f"{ym}-01")
+    return ob + total_income - total_expense - (advances - recoveries)
 
 
 def month_report(ym):
@@ -231,7 +265,56 @@ def dashboard():
 
     return render_template('dashboard.html', balance=balance, report=report,
                             flat_count=len(active_flats), watchman_due=watchman_due,
-                            recent_expenses=recent_expenses, ym=ym)
+                            recent_expenses=recent_expenses, ym=ym,
+                            corpus=corpus_fund_balance())
+
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings_page():
+    if request.method == 'POST':
+        if session.get('role') not in ('admin', 'manager'):
+            flash('Your account has view-only access.', 'error')
+            return redirect(url_for('settings_page'))
+        db.update('settings', get_settings()['id'], {
+            'opening_balance': to_float(request.form.get('opening_balance')),
+            'opening_balance_date': request.form.get('opening_balance_date') or date.today().isoformat(),
+            'opening_corpus_fund': to_float(request.form.get('opening_corpus_fund')),
+            'opening_corpus_fund_date': request.form.get('opening_corpus_fund_date') or date.today().isoformat(),
+        })
+        flash('Opening balance & corpus fund updated.', 'success')
+        return redirect(url_for('settings_page'))
+    return render_template('settings.html', settings=get_settings(),
+                            balance=overall_balance(), corpus=corpus_fund_balance())
+
+
+@app.route('/corpus-fund')
+@login_required
+def corpus_fund():
+    log = sorted(db.load('corpus_fund_log'), key=lambda x: x['date'], reverse=True)
+    return render_template('corpus_fund.html', log=log, balance=corpus_fund_balance(),
+                            today=date.today().isoformat())
+
+
+@app.route('/corpus-fund/add', methods=['POST'])
+@login_required
+def add_corpus_fund_entry():
+    db.insert('corpus_fund_log', {
+        'date': request.form.get('date', date.today().isoformat()),
+        'type': request.form['type'],  # add | withdraw
+        'amount': to_float(request.form.get('amount')),
+        'remarks': request.form.get('remarks', '').strip(),
+    })
+    flash('Corpus fund entry saved.', 'success')
+    return redirect(url_for('corpus_fund'))
+
+
+@app.route('/corpus-fund/<int:entry_id>/delete', methods=['POST'])
+@login_required
+def delete_corpus_fund_entry(entry_id):
+    db.delete('corpus_fund_log', entry_id)
+    flash('Entry removed.', 'success')
+    return redirect(url_for('corpus_fund'))
 
 
 # ---------------------------------------------------------------------------

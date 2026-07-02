@@ -50,6 +50,16 @@ def seed():
             })
 
 
+    settings = db.load('settings')
+    if not settings:
+        db.insert('settings', {
+            'opening_balance': 0.0,
+            'opening_balance_date': '2026-07-01',
+            'opening_corpus_fund': 0.0,
+            'opening_corpus_fund_date': '2026-07-01',
+        })
+
+
 if __name__ == '__main__':
     seed()
     print("Seed data created.")

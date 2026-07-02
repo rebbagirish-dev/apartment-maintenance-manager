@@ -29,6 +29,10 @@
     <div class="num" style="color:var(--amber)">₹{{ '%.0f'|format(report.unpaid_total) }}</div>
     <div class="lbl">Unpaid Dues</div>
   </div>
+  <div class="stat-box">
+    <div class="num" style="color:var(--primary)">₹{{ '%.0f'|format(corpus) }}</div>
+    <div class="lbl">Corpus Fund</div>
+  </div>
 </div>
 
 {% if session.role in ['admin', 'manager'] %}

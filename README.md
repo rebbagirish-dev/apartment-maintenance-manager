@@ -17,7 +17,15 @@ no database server required, fully human-readable, easy to back up (just copy th
 - **Monthly maintenance collection**: one click to generate that month's dues for every active flat, mark as paid, track pending dues
 - **Daily expense tracking**: log every expense with type, amount, paid-to, and remarks
 - **Watchman advance ledger**: track advances given and recoveries/deductions, always shows outstanding balance due
-- **Live running balance**: shown on the dashboard at all times
+- **Opening Balance & Corpus Fund**: since real societies rarely start using an app on day one,
+  admins/managers can record a one-time **opening balance** (accumulated funds as of a specific
+  date, e.g. the day before you started using this app) plus an **opening corpus fund** amount.
+  The opening balance is automatically folded into every balance calculation from that point
+  onward — it becomes the base for the running balance and for the very first month's carry-forward,
+  after which the normal month-to-month carry-forward logic takes over. The corpus fund has its
+  own simple ledger (additions/withdrawals) for tracking a long-term reserve fund separately from
+  day-to-day operating cash.
+- **Live running balance**: shown on the dashboard at all times (opening balance + all income − all expenses − watchman advances outstanding)
 - **Monthly Income & Expense report**: opening balance → income → expenses → closing balance, which automatically becomes next month's opening balance (carry-forward)
 - **CSV export** of any month's report
 - **6-month trend view**

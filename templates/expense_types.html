@@ -8,6 +8,7 @@
   <a href="{{ url_for('income_types') }}">Income Types</a>
   <a href="{{ url_for('expense_types') }}" class="active">Expense Types</a>
   {% if session.role == 'admin' %}<a href="{{ url_for('users') }}">Users</a>{% endif %}
+  <a href="{{ url_for('settings_page') }}">Opening Balance</a>
 </div>
 
 <div class="card">

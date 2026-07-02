@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Opening Balance{% endblock %}
+{% block header_title %}Master Data{% endblock %}
+{% block content %}
+
+<div class="tabs">
+  <a href="{{ url_for('flats') }}">Flats</a>
+  <a href="{{ url_for('income_types') }}">Income Types</a>
+  <a href="{{ url_for('expense_types') }}">Expense Types</a>
+  {% if session.role == 'admin' %}<a href="{{ url_for('users') }}">Users</a>{% endif %}
+  <a href="{{ url_for('settings_page') }}" class="active">Opening Balance</a>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-box"><div class="num" style="color:var(--green)">₹{{ '%.2f'|format(balance) }}</div><div class="lbl">Current Balance</div></div>
+  <div class="stat-box"><div class="num" style="color:var(--primary)">₹{{ '%.2f'|format(corpus) }}</div><div class="lbl">Corpus Fund</div></div>
+</div>
+
+{% if session.role in ['admin', 'manager'] %}
+<div class="card">
+  <div class="card-title">Opening Balance (one-time, for pre-app history)</div>
+  <div class="sub" style="margin-bottom:12px;">
+    Since your society had funds accumulated before you started using this app, record that
+    accumulated amount here as of a specific date. It will be added as the base for every
+    balance calculation going forward, and carried forward month to month automatically.
+  </div>
+  <form method="POST">
+    <div class="form-group">
+      <label>Opening Balance Amount ₹</label>
+      <input name="opening_balance" type="number" step="0.01" value="{{ settings.opening_balance }}" required>
+    </div>
+    <div class="form-group">
+      <label>As of Date</label>
+      <input type="date" name="opening_balance_date" value="{{ settings.opening_balance_date }}" required>
+    </div>
+
+    <div class="form-group" style="margin-top:18px;">
+      <label>Opening Corpus Fund Amount ₹</label>
+      <input name="opening_corpus_fund" type="number" step="0.01" value="{{ settings.opening_corpus_fund }}" required>
+    </div>
+    <div class="form-group">
+      <label>As of Date</label>
+      <input type="date" name="opening_corpus_fund_date" value="{{ settings.opening_corpus_fund_date }}" required>
+    </div>
+    <button class="btn block" type="submit">Save</button>
+  </form>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-title">Opening Balance on Record</div>
+  <table class="report-table">
+    <tr><td>Opening Balance</td><td>₹{{ '%.2f'|format(settings.opening_balance) }}</td></tr>
+    <tr><td>As of</td><td>{{ settings.opening_balance_date }}</td></tr>
+    <tr><td>Opening Corpus Fund</td><td>₹{{ '%.2f'|format(settings.opening_corpus_fund) }}</td></tr>
+    <tr><td>As of</td><td>{{ settings.opening_corpus_fund_date }}</td></tr>
+  </table>
+</div>
+{% endif %}
+
+<a href="{{ url_for('corpus_fund') }}" class="small-link">Manage Corpus Fund Ledger →</a>
+{% endblock %}

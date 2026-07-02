@@ -13,7 +13,8 @@ _lock = threading.Lock()
 COLLECTIONS = [
     'users', 'flats', 'income_types', 'expense_types',
     'income_tx', 'expense_tx', 'watchman_ledger',
-    'monthly_summary', 'events', 'event_contributions', 'event_expenses'
+    'monthly_summary', 'events', 'event_contributions', 'event_expenses',
+    'settings', 'corpus_fund_log'
 ]
 
 
