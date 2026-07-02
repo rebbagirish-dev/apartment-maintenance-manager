@@ -44,7 +44,10 @@
     <tr><td><b>Closing Balance (carried to next month)</b></td><td><b>₹{{ '%.2f'|format(report.closing_balance) }}</b></td></tr>
     <tr><td>Unpaid Maintenance Dues</td><td style="color:var(--amber)">₹{{ '%.2f'|format(report.unpaid_total) }}</td></tr>
   </table>
-  <a href="{{ url_for('export_report', ym=ym) }}" class="btn secondary block" style="margin-top:12px;">Download CSV Report</a>
+  <div class="two-col" style="margin-top:12px;">
+    <a href="{{ url_for('export_report', ym=ym) }}" class="btn secondary block">Download CSV Report</a>
+    <a href="{{ url_for('export_report_pdf', ym=ym) }}" class="btn secondary block">Download PDF Report</a>
+  </div>
 </div>
 
 {% if report.unpaid_by_flat %}

@@ -9,9 +9,14 @@
   <div class="row"><span>Collected ₹{{ '%.0f'|format(total_contrib) }}</span><span>Spent ₹{{ '%.0f'|format(total_exp) }}</span></div>
 </div>
 
-<a href="{{ url_for('export_event_report', event_id=event.id) }}" class="btn secondary block" style="margin-bottom:12px;">
-  Download CSV Report
-</a>
+<div class="two-col" style="margin-bottom:12px;">
+  <a href="{{ url_for('export_event_report', event_id=event.id) }}" class="btn secondary block">
+    Download CSV Report
+  </a>
+  <a href="{{ url_for('export_event_report_pdf', event_id=event.id) }}" class="btn secondary block">
+    Download PDF Report
+  </a>
+</div>
 
 {% if resident_flat %}
 <div class="card">

@@ -45,11 +45,16 @@ html, body {
   background: linear-gradient(135deg, #15803d, #16a34a);
   color: #eef2ff;
   display: flex; align-items: center; justify-content: center;
+  gap: 8px;
   font-size: 19px;
   font-weight: 800;
   letter-spacing: 0.14em;
   position: sticky;
   overflow: hidden;
+}
+.brand-icon {
+  font-size: 1em;
+  line-height: 1;
 }
 .brand-bar .watermark {
   position: absolute;

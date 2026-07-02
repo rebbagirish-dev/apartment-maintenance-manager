@@ -84,6 +84,27 @@ class ResidentAccessTests(unittest.TestCase):
             'paid_date': '2026-07-02',
             'remarks': 'Flat two paid',
         })
+        self.event = db.insert('events', {
+            'name': 'Ganesh Festival',
+            'event_date': '2026-07-05',
+            'description': 'Community event',
+            'status': 'active',
+            'created_at': '2026-07-01T10:00:00',
+        })
+        db.insert('event_contributions', {
+            'event_id': self.event['id'],
+            'flat_id': self.flat_one_id,
+            'amount': 500.0,
+            'date': '2026-07-04',
+            'remarks': 'Advance contribution',
+        })
+        db.insert('event_expenses', {
+            'event_id': self.event['id'],
+            'description': 'Decoration',
+            'amount': 200.0,
+            'date': '2026-07-05',
+            'paid_to': 'Vendor',
+        })
 
     def tearDown(self):
         db.DATA_DIR = self.original_data_dir
@@ -164,6 +185,24 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertEqual(updated['username'], 'manager_renamed')
         self.assertEqual(updated['role'], 'tenant')
         self.assertEqual(updated['flat_id'], self.flat_two_id)
+
+    def test_monthly_report_pdf_download(self):
+        self.login('admin', 'admin123')
+        response = self.client.get('/reports/export/2026-07/pdf')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'application/pdf')
+        self.assertIn('report_2026-07.pdf', response.headers.get('Content-Disposition', ''))
+        self.assertTrue(response.data.startswith(b'%PDF-1.4'))
+
+    def test_event_report_pdf_download(self):
+        self.login('admin', 'admin123')
+        response = self.client.get(f'/events/{self.event["id"]}/report/export/pdf')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'application/pdf')
+        self.assertIn('event_report_Ganesh_Festival.pdf', response.headers.get('Content-Disposition', ''))
+        self.assertTrue(response.data.startswith(b'%PDF-1.4'))
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, date, timedelta
 from functools import wraps
+import textwrap
 
 from flask import (Flask, render_template, request, redirect, url_for,
                     session, flash, jsonify, Response)
@@ -58,7 +59,8 @@ def admin_required(view):
 # ---------------------------------------------------------------------------
 
 TENANT_ALLOWED_ENDPOINTS = {
-    'reports', 'export_report', 'event_report', 'export_event_report',
+    'reports', 'export_report', 'export_report_pdf', 'event_report', 'export_event_report',
+    'export_event_report_pdf',
     'logout', 'static', 'manifest', 'service_worker',
 }
 OWNER_BLOCKED_ENDPOINTS = {
@@ -161,6 +163,103 @@ def resident_due_summary(flat_id, ym):
         'outstanding_count': len(unpaid_all),
         'recent_tx': tx[:6],
     }
+
+
+def pdf_safe_text(value):
+    return str(value).replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+
+
+def build_text_pdf(title, lines):
+    max_width = 92
+    line_height = 16
+    page_height = 842
+    top_y = 790
+    bottom_y = 60
+    pages = []
+    current = []
+    current_y = top_y
+
+    wrapped_lines = []
+    for line in lines:
+        text = str(line)
+        if not text:
+            wrapped_lines.append('')
+            continue
+        chunks = textwrap.wrap(text, width=max_width, break_long_words=False, break_on_hyphens=False)
+        wrapped_lines.extend(chunks or [''])
+
+    for line in wrapped_lines:
+        if current_y < bottom_y:
+            pages.append(current)
+            current = []
+            current_y = top_y
+        current.append(line)
+        current_y -= line_height
+    if not pages or current:
+        pages.append(current)
+
+    objects = []
+
+    def add_object(data):
+        objects.append(data)
+        return len(objects)
+
+    font_regular_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    font_bold_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
+
+    page_ids = []
+    content_ids = []
+    for page_number, page_lines in enumerate(pages, start=1):
+        commands = [
+            "BT",
+            "/F2 16 Tf",
+            f"50 {top_y} Td",
+            f"({pdf_safe_text(title)}) Tj",
+            "/F1 11 Tf",
+            "0 -24 Td",
+        ]
+        if len(pages) > 1:
+            commands.extend([
+                f"(Page {page_number} of {len(pages)}) Tj",
+                "0 -20 Td",
+            ])
+        for line in page_lines:
+            commands.append(f"({pdf_safe_text(line)}) Tj")
+            commands.append(f"0 -{line_height} Td")
+        commands.append("ET")
+        stream = "\n".join(commands).encode('latin-1', errors='replace')
+        content_id = add_object(
+            f"<< /Length {len(stream)} >>\nstream\n{stream.decode('latin-1')}\nendstream"
+        )
+        content_ids.append(content_id)
+        page_ids.append(add_object(""))
+
+    kids = " ".join(f"{page_id} 0 R" for page_id in page_ids)
+    pages_id = add_object(f"<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>")
+
+    for page_id, content_id in zip(page_ids, content_ids):
+        objects[page_id - 1] = (
+            f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 595 842] "
+            f"/Resources << /Font << /F1 {font_regular_id} 0 R /F2 {font_bold_id} 0 R >> >> "
+            f"/Contents {content_id} 0 R >>"
+        )
+
+    catalog_id = add_object(f"<< /Type /Catalog /Pages {pages_id} 0 R >>")
+
+    pdf = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{index} 0 obj\n{obj}\nendobj\n".encode('latin-1'))
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode('latin-1'))
+    pdf.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode('latin-1'))
+    pdf.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\nstartxref\n{xref_offset}\n%%EOF".encode('latin-1')
+    )
+    return bytes(pdf)
 
 
 # ---------------------------------------------------------------------------
@@ -795,6 +894,37 @@ def export_report(ym):
                      headers={'Content-Disposition': f'attachment; filename=report_{ym}.csv'})
 
 
+@app.route('/reports/export/<ym>/pdf')
+@login_required
+def export_report_pdf(ym):
+    report = month_report(ym)
+    lines = [
+        f"Opening Balance: {report['opening_balance']:.2f}",
+        f"Total Income: {report['total_income']:.2f}",
+        f"Total Expenses: {report['total_expense']:.2f}",
+        f"Closing Balance: {report['closing_balance']:.2f}",
+        f"Unpaid Maintenance Dues: {report['unpaid_total']:.2f}",
+        "",
+        "Income by Type",
+    ]
+    for k, v in report['income_by_type'].items():
+        lines.append(f"- {k}: {v:.2f}")
+    if not report['income_by_type']:
+        lines.append("- No income this month")
+    lines.extend(["", "Expenses by Type"])
+    for k, v in report['expense_by_type'].items():
+        lines.append(f"- {k}: {v:.2f}")
+    if not report['expense_by_type']:
+        lines.append("- No expenses this month")
+    if report['unpaid_by_flat']:
+        lines.extend(["", "Flats Yet to Pay Maintenance"])
+        for due in report['unpaid_by_flat']:
+            lines.append(f"- Flat {due['flat_no']}: {due['amount']:.2f}")
+    pdf_data = build_text_pdf(f"Apartment Maintenance Report - {report['label']}", lines)
+    return Response(pdf_data, mimetype='application/pdf',
+                     headers={'Content-Disposition': f'attachment; filename=report_{ym}.pdf'})
+
+
 # ---------------------------------------------------------------------------
 # Events (separate module: contributions + expenses per event)
 # ---------------------------------------------------------------------------
@@ -922,6 +1052,54 @@ def export_event_report(event_id):
     safe_name = event['name'].replace(' ', '_')
     return Response(csv_data, mimetype='text/csv',
                      headers={'Content-Disposition': f'attachment; filename=event_report_{safe_name}.csv'})
+
+
+@app.route('/events/<int:event_id>/report/export/pdf')
+@login_required
+def export_event_report_pdf(event_id):
+    event = db.get('events', event_id)
+    if not event:
+        flash('Event not found.', 'error')
+        return redirect(url_for('events'))
+    flats_list = db.load('flats')
+    contributions = [c for c in db.load('event_contributions') if c['event_id'] == event_id]
+    for c in contributions:
+        c['flat_no'] = lookup(flats_list, c.get('flat_id'), 'flat_no', c.get('contributor_name') or '-')
+    contributions.sort(key=lambda x: x['flat_no'])
+    exp = [x for x in db.load('event_expenses') if x['event_id'] == event_id]
+    exp.sort(key=lambda x: x['date'])
+    total_contrib = sum(to_float(c['amount']) for c in contributions)
+    total_exp = sum(to_float(x['amount']) for x in exp)
+    contributed_flat_ids = {c.get('flat_id') for c in contributions}
+    not_contributed = [f for f in flats_list
+                       if f.get('status', 'active') == 'active' and f['id'] not in contributed_flat_ids]
+
+    lines = [
+        f"Event Date: {event.get('event_date', '')}",
+        f"Total Collected: {total_contrib:.2f}",
+        f"Total Spent: {total_exp:.2f}",
+        f"Net Balance: {(total_contrib - total_exp):.2f}",
+        "",
+        "Contributions",
+    ]
+    for c in contributions:
+        lines.append(f"- Flat {c['flat_no']} on {c['date']}: {c['amount']:.2f}")
+    if not contributions:
+        lines.append("- No contributions recorded")
+    lines.extend(["", "Expenses"])
+    for x in exp:
+        lines.append(f"- {x['description']} on {x['date']}: {x['amount']:.2f}")
+    if not exp:
+        lines.append("- No expenses recorded")
+    if not_contributed:
+        lines.extend(["", "Flats Yet to Contribute"])
+        for flat in sorted(not_contributed, key=lambda f: f['flat_no']):
+            lines.append(f"- Flat {flat['flat_no']}")
+
+    safe_name = event['name'].replace(' ', '_')
+    pdf_data = build_text_pdf(f"Event Report - {event['name']}", lines)
+    return Response(pdf_data, mimetype='application/pdf',
+                     headers={'Content-Disposition': f'attachment; filename=event_report_{safe_name}.pdf'})
 
 
 @app.route('/events/<int:event_id>/contribution', methods=['POST'])
