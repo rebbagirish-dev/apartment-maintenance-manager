@@ -291,7 +291,7 @@ table.report-table td { padding: 8px 4px; border-bottom: 1px solid var(--border)
 table.report-table td:last-child { text-align: right; font-weight: 600; }
 .trend-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12.5px; }
 .trend-bar-track { flex: 1; height: 8px; background: #f0f0f3; border-radius: 6px; overflow: hidden; display: flex; }
-.login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+.login-wrap { display: flex; align-items: flex-start; justify-content: center; padding: 4px 20px 20px; }
 .login-card { max-width: 380px; width: 100%; background: #fff; border-radius: 20px; padding: 30px 26px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
 .login-logo { text-align: center; font-size: 42px; margin-bottom: 6px; }
 .login-title { text-align: center; font-weight: 800; font-size: 20px; margin-bottom: 4px; }
