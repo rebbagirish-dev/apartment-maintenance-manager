@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Reports{% endblock %}
+{% block header_title %}Reports{% endblock %}
+{% block content %}
+
+<form method="GET" class="month-picker">
+  <h2 class="page-title" style="margin:0;">{{ report.label }}</h2>
+  <input type="month" name="month" value="{{ ym }}" onchange="this.form.submit()" style="width:auto;">
+</form>
+
+<div class="card">
+  <div class="card-title">Summary</div>
+  <table class="report-table">
+    <tr><td>Opening Balance (carried forward)</td><td>₹{{ '%.2f'|format(report.opening_balance) }}</td></tr>
+    <tr><td>Total Income</td><td style="color:var(--green)">+₹{{ '%.2f'|format(report.total_income) }}</td></tr>
+    <tr><td>Total Expenses</td><td style="color:var(--red)">-₹{{ '%.2f'|format(report.total_expense) }}</td></tr>
+    <tr><td><b>Closing Balance (carried to next month)</b></td><td><b>₹{{ '%.2f'|format(report.closing_balance) }}</b></td></tr>
+    <tr><td>Unpaid Maintenance Dues</td><td style="color:var(--amber)">₹{{ '%.2f'|format(report.unpaid_total) }}</td></tr>
+  </table>
+  <a href="{{ url_for('export_report', ym=ym) }}" class="btn secondary block" style="margin-top:12px;">Download CSV Report</a>
+</div>
+
+<div class="card">
+  <div class="card-title">Income by Type</div>
+  {% for k, v in report.income_by_type.items() %}
+  <div class="list-row"><div class="main">{{ k }}</div><div class="amt pos">₹{{ '%.2f'|format(v) }}</div></div>
+  {% else %}
+  <div class="empty-state">No income this month.</div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-title">Expenses by Type</div>
+  {% for k, v in report.expense_by_type.items() %}
+  <div class="list-row"><div class="main">{{ k }}</div><div class="amt neg">₹{{ '%.2f'|format(v) }}</div></div>
+  {% else %}
+  <div class="empty-state">No expenses this month.</div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-title">6 Month Trend</div>
+  {% set max_val = (trend|map(attribute='income')|list + trend|map(attribute='expense')|list)|max %}
+  {% for m in trend %}
+  <div style="margin-bottom:10px;">
+    <div class="sub" style="margin-bottom:4px;">{{ m.label }} · Net ₹{{ '%.0f'|format(m.net) }}</div>
+    <div class="trend-bar-row">
+      <span style="width:32px;">In</span>
+      <div class="trend-bar-track"><div style="width:{{ (m.income / max_val * 100) if max_val else 0 }}%; background:var(--green);"></div></div>
+    </div>
+    <div class="trend-bar-row">
+      <span style="width:32px;">Out</span>
+      <div class="trend-bar-track"><div style="width:{{ (m.expense / max_val * 100) if max_val else 0 }}%; background:var(--red);"></div></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-title">Current Balance (Right Now)</div>
+  <div class="amt pos" style="font-size:22px;">₹{{ '%.2f'|format(current_balance) }}</div>
+</div>
+{% endblock %}

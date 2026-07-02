@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Expense Types{% endblock %}
+{% block header_title %}Master Data{% endblock %}
+{% block content %}
+
+<div class="tabs">
+  <a href="{{ url_for('flats') }}">Flats</a>
+  <a href="{{ url_for('income_types') }}">Income Types</a>
+  <a href="{{ url_for('expense_types') }}" class="active">Expense Types</a>
+  {% if session.role == 'admin' %}<a href="{{ url_for('users') }}">Users</a>{% endif %}
+</div>
+
+<div class="card">
+  <div class="card-title">Add Expense Type</div>
+  <form method="POST">
+    <div class="form-group"><label>Name</label><input name="name" required placeholder="e.g. Lift AMC"></div>
+    <div class="form-group"><label>Description</label><input name="description" placeholder="Optional"></div>
+    <div class="form-group"><label>Typical / Default Amount ₹</label><input name="default_amount" type="number" step="0.01" value="0"></div>
+    <div class="checkbox-row form-group">
+      <input type="checkbox" name="recurring" id="recurring">
+      <label for="recurring" style="margin:0;">This is a recurring monthly expense</label>
+    </div>
+    <button class="btn block" type="submit">+ Add</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title">All Expense Types ({{ expense_types|length }})</div>
+  {% for t in expense_types %}
+  <div class="list-row">
+    <div>
+      <div class="main">{{ t.name }}
+        {% if t.recurring %}<span class="badge recurring">Recurring</span>{% else %}<span class="badge onetime">One-time</span>{% endif %}
+      </div>
+      {% if t.description %}<div class="sub">{{ t.description }}</div>{% endif %}
+      {% if t.default_amount %}<div class="sub">Typical: ₹{{ '%.2f'|format(t.default_amount) }}</div>{% endif %}
+    </div>
+    <form method="POST" action="{{ url_for('delete_expense_type', type_id=t.id) }}"
+      onclick="return confirm('Remove this expense type?');">
+      <button class="btn sm danger" type="submit">Delete</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="empty-state">No expense types yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

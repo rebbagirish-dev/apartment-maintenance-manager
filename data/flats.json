@@ -1,0 +1,22 @@
+[
+  {
+    "flat_no": "101",
+    "owner_name": "Venkat",
+    "tenant_name": "",
+    "contact": "",
+    "maintenance_amount": 2000.0,
+    "status": "active",
+    "created_at": "2026-07-02T09:42:28.101020",
+    "id": 1
+  },
+  {
+    "flat_no": "301",
+    "owner_name": "Sasidhar",
+    "tenant_name": "",
+    "contact": "",
+    "maintenance_amount": 2000.0,
+    "status": "active",
+    "created_at": "2026-07-02T09:42:40.261517",
+    "id": 2
+  }
+]

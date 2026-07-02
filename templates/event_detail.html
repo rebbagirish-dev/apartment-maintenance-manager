@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}{{ event.name }}{% endblock %}
+{% block header_title %}<a href="{{ url_for('events') }}" style="margin-right:8px;">&#8592;</a>{{ event.name }}{% endblock %}
+{% block content %}
+
+<div class="balance-card" style="background:linear-gradient(135deg,#7c3aed,#db2777);">
+  <div class="label">{{ event.name }} · {{ event.event_date }}</div>
+  <div class="amount">₹{{ '%.2f'|format(balance) }}</div>
+  <div class="row"><span>Contributions ₹{{ '%.0f'|format(total_contrib) }}</span><span>Expenses ₹{{ '%.0f'|format(total_exp) }}</span></div>
+</div>
+
+<div class="card">
+  <div class="card-title">Add Contribution</div>
+  <form method="POST" action="{{ url_for('add_event_contribution', event_id=event.id) }}">
+    <div class="form-group">
+      <label>Flat (optional)</label>
+      <select name="flat_id">
+        <option value="">-- Not flat-linked --</option>
+        {% for f in flats %}<option value="{{ f.id }}">{{ f.flat_no }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group"><label>Contributor Name (if not a flat)</label><input name="contributor_name" placeholder="Optional"></div>
+    <div class="two-col">
+      <div class="form-group"><label>Amount ₹</label><input name="amount" type="number" step="0.01" required></div>
+      <div class="form-group"><label>Date</label><input type="date" name="date" value="{{ today }}" required></div>
+    </div>
+    <div class="form-group"><label>Remarks</label><input name="remarks"></div>
+    <button class="btn block" type="submit">+ Add Contribution</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title">Add Event Expense</div>
+  <form method="POST" action="{{ url_for('add_event_expense', event_id=event.id) }}">
+    <div class="form-group"><label>Description</label><input name="description" required placeholder="e.g. Decoration"></div>
+    <div class="two-col">
+      <div class="form-group"><label>Amount ₹</label><input name="amount" type="number" step="0.01" required></div>
+      <div class="form-group"><label>Date</label><input type="date" name="date" value="{{ today }}" required></div>
+    </div>
+    <div class="form-group"><label>Paid To</label><input name="paid_to"></div>
+    <button class="btn block" type="submit">+ Add Expense</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title">Contributions ({{ contributions|length }})</div>
+  {% for c in contributions %}
+  <div class="list-row">
+    <div>
+      <div class="main">{{ c.flat_no if c.flat_id else (c.contributor_name or 'Anonymous') }}</div>
+      <div class="sub">{{ c.date }}{% if c.remarks %} · {{ c.remarks }}{% endif %}</div>
+    </div>
+    <div class="amt pos">+₹{{ '%.2f'|format(c.amount) }}</div>
+  </div>
+  <form method="POST" action="{{ url_for('delete_event_contribution', c_id=c.id) }}" style="margin:0 0 8px;"
+    onsubmit="return confirm('Delete this contribution?');">
+    <button class="btn sm danger" type="submit">Delete</button>
+  </form>
+  {% else %}
+  <div class="empty-state">No contributions yet.</div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-title">Expenses ({{ expenses|length }})</div>
+  {% for x in expenses %}
+  <div class="list-row">
+    <div>
+      <div class="main">{{ x.description }}</div>
+      <div class="sub">{{ x.date }}{% if x.paid_to %} · Paid to {{ x.paid_to }}{% endif %}</div>
+    </div>
+    <div class="amt neg">-₹{{ '%.2f'|format(x.amount) }}</div>
+  </div>
+  <form method="POST" action="{{ url_for('delete_event_expense', x_id=x.id) }}" style="margin:0 0 8px;"
+    onsubmit="return confirm('Delete this expense?');">
+    <button class="btn sm danger" type="submit">Delete</button>
+  </form>
+  {% else %}
+  <div class="empty-state">No expenses yet.</div>
+  {% endfor %}
+</div>
+
+{% if session.role == 'admin' %}
+<form method="POST" action="{{ url_for('delete_event', event_id=event.id) }}"
+  onsubmit="return confirm('Delete this entire event and all its records?');">
+  <button class="btn danger block" type="submit">Delete Event</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,9 @@
+[
+  {
+    "username": "admin",
+    "password_hash": "scrypt:32768:8:1$rGWhZGLNKeVfD5i3$7696eb64f264d6056fac5c715491f682942d6e0b2a835247dd772a6e9f0b7223f65f1883edf3b0bed30bc9867c1c9645116980f3a6ecb7de1da531b9563f0ec9",
+    "name": "Administrator",
+    "role": "admin",
+    "id": 1
+  }
+]

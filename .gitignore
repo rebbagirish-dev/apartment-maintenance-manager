@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.DS_Store
+
+# Keep the folder but you may want to gitignore live data once deployed,
+# so a fresh clone doesn't overwrite production data on redeploy.
+# Uncomment the next line if you want data to persist only on Railway and not in git:
+# data/*.json

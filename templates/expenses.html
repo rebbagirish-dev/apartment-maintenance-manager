@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Expenses{% endblock %}
+{% block header_title %}Daily Expenses{% endblock %}
+{% block content %}
+
+<form method="GET" class="month-picker">
+  <h2 class="page-title" style="margin:0;">{{ month_label }}</h2>
+  <input type="month" name="month" value="{{ ym }}" onchange="this.form.submit()" style="width:auto;">
+</form>
+
+<div class="stat-grid" style="grid-template-columns:1fr;">
+  <div class="stat-box"><div class="num" style="color:var(--red)">₹{{ '%.2f'|format(total) }}</div><div class="lbl">Total Spent — {{ month_label }}</div></div>
+</div>
+
+<div class="card">
+  <div class="card-title">Add Expense</div>
+  <form method="POST" action="{{ url_for('add_expense') }}">
+    <div class="two-col">
+      <div class="form-group"><label>Date</label><input type="date" name="date" value="{{ today }}" required></div>
+      <div class="form-group"><label>Amount ₹</label><input name="amount" type="number" step="0.01" required></div>
+    </div>
+    <div class="form-group">
+      <label>Expense Type</label>
+      <select name="expense_type_id" required>
+        {% for t in expense_types %}<option value="{{ t.id }}">{{ t.name }}{% if t.recurring %} (recurring){% endif %}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group"><label>Paid To</label><input name="paid_to" placeholder="Vendor / person name"></div>
+    <div class="form-group"><label>Remarks</label><input name="remarks"></div>
+    <button class="btn block" type="submit">+ Save Expense</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title">{{ month_label }} — {{ tx|length }} entries</div>
+  {% for t in tx %}
+  <div class="list-row">
+    <div>
+      <div class="main">{{ t.type_name }}</div>
+      <div class="sub">{{ t.date }}{% if t.paid_to %} · Paid to {{ t.paid_to }}{% endif %}{% if t.remarks %} · {{ t.remarks }}{% endif %}</div>
+    </div>
+    <div class="amt neg">-₹{{ '%.2f'|format(t.amount) }}</div>
+  </div>
+  <form method="POST" action="{{ url_for('delete_expense', tx_id=t.id) }}" style="margin:0 0 8px;"
+    onsubmit="return confirm('Delete this expense?');">
+    <button class="btn sm danger" type="submit">Delete</button>
+  </form>
+  {% else %}
+  <div class="empty-state"><div class="icon">&#128200;</div>No expenses recorded for this month.</div>
+  {% endfor %}
+</div>
+{% endblock %}

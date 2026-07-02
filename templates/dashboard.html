@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block header_title %}Hi, {{ session.name }}{% endblock %}
+{% block content %}
+
+<div class="balance-card">
+  <div class="label">Current Balance</div>
+  <div class="amount">₹{{ '%.2f'|format(balance) }}</div>
+  <div class="row">
+    <span>Watchman advance due</span>
+    <span>₹{{ '%.2f'|format(watchman_due) }}</span>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-box">
+    <div class="num" style="color:var(--green)">₹{{ '%.0f'|format(report.total_income) }}</div>
+    <div class="lbl">Income – {{ report.label }}</div>
+  </div>
+  <div class="stat-box">
+    <div class="num" style="color:var(--red)">₹{{ '%.0f'|format(report.total_expense) }}</div>
+    <div class="lbl">Expenses – {{ report.label }}</div>
+  </div>
+  <div class="stat-box">
+    <div class="num">{{ flat_count }}</div>
+    <div class="lbl">Active Flats</div>
+  </div>
+  <div class="stat-box">
+    <div class="num" style="color:var(--amber)">₹{{ '%.0f'|format(report.unpaid_total) }}</div>
+    <div class="lbl">Unpaid Dues</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Quick Actions</div>
+  <div class="two-col" style="margin-bottom:8px;">
+    <a href="{{ url_for('expenses') }}" class="btn secondary sm block">+ Add Expense</a>
+    <a href="{{ url_for('income') }}" class="btn secondary sm block">+ Record Income</a>
+  </div>
+  <div class="two-col">
+    <a href="{{ url_for('flats') }}" class="btn secondary sm block">Manage Flats</a>
+    <a href="{{ url_for('watchman') }}" class="btn secondary sm block">Watchman Ledger</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Recent Expenses</div>
+  {% if recent_expenses %}
+    {% for e in recent_expenses %}
+    <div class="list-row">
+      <div>
+        <div class="main">{{ e.type_name }}</div>
+        <div class="sub">{{ e.date }} {% if e.paid_to %}· {{ e.paid_to }}{% endif %}</div>
+      </div>
+      <div class="amt neg">-₹{{ '%.2f'|format(e.amount) }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state"><div class="icon">&#128203;</div>No expenses recorded yet.</div>
+  {% endif %}
+</div>
+
+<a href="{{ url_for('flats') }}" class="small-link">Manage Flats &amp; Master Data →</a>
+{% endblock %}

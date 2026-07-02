@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Events{% endblock %}
+{% block header_title %}Events{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-title">Create New Event</div>
+  <form method="POST">
+    <div class="form-group"><label>Event Name</label><input name="name" required placeholder="e.g. Diwali Celebration"></div>
+    <div class="form-group"><label>Date</label><input type="date" name="event_date" required></div>
+    <div class="form-group"><label>Description</label><input name="description" placeholder="Optional"></div>
+    <button class="btn block" type="submit">+ Create Event</button>
+  </form>
+</div>
+
+{% for e in events %}
+<a href="{{ url_for('event_detail', event_id=e.id) }}" style="text-decoration:none;color:inherit;">
+  <div class="card">
+    <div class="list-row" style="border:none;padding:0;">
+      <div>
+        <div class="main">&#127881; {{ e.name }}</div>
+        <div class="sub">{{ e.event_date }}{% if e.description %} · {{ e.description }}{% endif %}</div>
+      </div>
+      <div class="amt {{ 'pos' if e.balance >= 0 else 'neg' }}">₹{{ '%.0f'|format(e.balance) }}</div>
+    </div>
+    <div class="sub" style="margin-top:8px;">Contributions ₹{{ '%.0f'|format(e.total_contributions) }} · Expenses ₹{{ '%.0f'|format(e.total_expenses) }}</div>
+  </div>
+</a>
+{% else %}
+<div class="empty-state"><div class="icon">&#127881;</div>No events yet. Create your first event above.</div>
+{% endfor %}
+{% endblock %}

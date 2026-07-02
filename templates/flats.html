@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Flats{% endblock %}
+{% block header_title %}Master Data{% endblock %}
+{% block content %}
+
+<div class="tabs">
+  <a href="{{ url_for('flats') }}" class="active">Flats</a>
+  <a href="{{ url_for('income_types') }}">Income Types</a>
+  <a href="{{ url_for('expense_types') }}">Expense Types</a>
+  {% if session.role == 'admin' %}<a href="{{ url_for('users') }}">Users</a>{% endif %}
+</div>
+
+<div class="card">
+  <div class="card-title">Total Flats: {{ flats|length }}</div>
+  <form method="POST" action="{{ url_for('flats') }}">
+    <div class="two-col">
+      <div class="form-group"><label>Flat No.</label><input name="flat_no" required placeholder="A-101"></div>
+      <div class="form-group"><label>Maintenance ₹/mo</label><input name="maintenance_amount" type="number" step="0.01" required></div>
+    </div>
+    <div class="form-group"><label>Owner Name</label><input name="owner_name" placeholder="Owner name"></div>
+    <div class="form-group"><label>Tenant Name (if rented)</label><input name="tenant_name" placeholder="Optional"></div>
+    <div class="form-group"><label>Contact Number</label><input name="contact" placeholder="Phone number"></div>
+    <button class="btn block" type="submit">+ Add Flat</button>
+  </form>
+</div>
+
+{% for f in flats %}
+<div class="card">
+  <div class="list-row" style="border:none;padding:0 0 8px;">
+    <div>
+      <div class="main">Flat {{ f.flat_no }} &nbsp;
+        <span class="badge {{ 'paid' if f.status=='active' else 'unpaid' }}">{{ f.status }}</span>
+      </div>
+      <div class="sub">{{ f.owner_name or 'No owner set' }}{% if f.tenant_name %} · Tenant: {{ f.tenant_name }}{% endif %}</div>
+      <div class="sub">{{ f.contact or '' }}</div>
+    </div>
+    <div class="amt">₹{{ '%.0f'|format(f.maintenance_amount) }}/mo</div>
+  </div>
+  <details>
+    <summary class="small-link">Edit / Manage</summary>
+    <form method="POST" action="{{ url_for('edit_flat', flat_id=f.id) }}" style="margin-top:10px;">
+      <div class="two-col">
+        <div class="form-group"><label>Flat No.</label><input name="flat_no" value="{{ f.flat_no }}" required></div>
+        <div class="form-group"><label>Maintenance ₹/mo</label><input name="maintenance_amount" type="number" step="0.01" value="{{ f.maintenance_amount }}" required></div>
+      </div>
+      <div class="form-group"><label>Owner Name</label><input name="owner_name" value="{{ f.owner_name }}"></div>
+      <div class="form-group"><label>Tenant Name</label><input name="tenant_name" value="{{ f.tenant_name }}"></div>
+      <div class="form-group"><label>Contact</label><input name="contact" value="{{ f.contact }}"></div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status">
+          <option value="active" {{ 'selected' if f.status=='active' }}>Active</option>
+          <option value="inactive" {{ 'selected' if f.status=='inactive' }}>Inactive</option>
+        </select>
+      </div>
+      <div class="two-col">
+        <button class="btn sm block" type="submit">Save</button>
+        <button class="btn sm danger block" type="submit" formaction="{{ url_for('delete_flat', flat_id=f.id) }}"
+          onclick="return confirm('Remove this flat?');">Delete</button>
+      </div>
+    </form>
+  </details>
+</div>
+{% else %}
+<div class="empty-state"><div class="icon">&#127968;</div>No flats added yet.</div>
+{% endfor %}
+
+{% endblock %}

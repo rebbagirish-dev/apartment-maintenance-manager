@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Watchman Ledger{% endblock %}
+{% block header_title %}Watchman Advances{% endblock %}
+{% block content %}
+
+<div class="balance-card" style="background:linear-gradient(135deg,#d97706,#f59e0b);">
+  <div class="label">Outstanding Advance Due</div>
+  <div class="amount">₹{{ '%.2f'|format(outstanding) }}</div>
+</div>
+
+<div class="card">
+  <div class="card-title">Add Entry</div>
+  <form method="POST" action="{{ url_for('add_watchman_entry') }}">
+    <div class="two-col">
+      <div class="form-group"><label>Date</label><input type="date" name="date" value="{{ today }}" required></div>
+      <div class="form-group"><label>Amount ₹</label><input name="amount" type="number" step="0.01" required></div>
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <select name="type">
+        <option value="advance">Advance Given</option>
+        <option value="recovery">Recovery / Deducted from Salary</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Remarks</label><input name="remarks"></div>
+    <button class="btn block" type="submit">+ Save</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title">Ledger ({{ ledger|length }} entries)</div>
+  {% for e in ledger %}
+  <div class="list-row">
+    <div>
+      <div class="main">{{ 'Advance Given' if e.type == 'advance' else 'Recovery' }}</div>
+      <div class="sub">{{ e.date }}{% if e.remarks %} · {{ e.remarks }}{% endif %}</div>
+    </div>
+    <div class="amt {{ 'neg' if e.type == 'advance' else 'pos' }}">
+      {{ '-' if e.type == 'advance' else '+' }}₹{{ '%.2f'|format(e.amount) }}
+    </div>
+  </div>
+  <form method="POST" action="{{ url_for('delete_watchman_entry', entry_id=e.id) }}" style="margin:0 0 8px;"
+    onsubmit="return confirm('Delete this entry?');">
+    <button class="btn sm danger" type="submit">Delete</button>
+  </form>
+  {% else %}
+  <div class="empty-state"><div class="icon">&#128737;</div>No entries yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

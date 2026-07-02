@@ -1,0 +1,11 @@
+[
+  {
+    "date": "2026-07-02",
+    "expense_type_id": 1,
+    "amount": 8000.0,
+    "paid_to": "Kondalu",
+    "remarks": "",
+    "recorded_by": "admin",
+    "id": 1
+  }
+]
