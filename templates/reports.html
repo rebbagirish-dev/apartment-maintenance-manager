@@ -36,12 +36,13 @@
 {% endif %}
 
 <div class="card">
-  <div class="card-title">Summary</div>
+  <div class="card-title">Profit and Loss Statement</div>
   <table class="report-table">
-    <tr><td>Opening Balance (carried forward)</td><td>₹{{ '%.2f'|format(report.opening_balance) }}</td></tr>
-    <tr><td>Total Income</td><td style="color:var(--green)">+₹{{ '%.2f'|format(report.total_income) }}</td></tr>
-    <tr><td>Total Expenses</td><td style="color:var(--red)">-₹{{ '%.2f'|format(report.total_expense) }}</td></tr>
-    <tr><td><b>Closing Balance (carried to next month)</b></td><td><b>₹{{ '%.2f'|format(report.closing_balance) }}</b></td></tr>
+    <tr><td>Opening Balance</td><td>₹{{ '%.2f'|format(report.opening_balance) }}</td></tr>
+    <tr><td>Operating Income</td><td style="color:var(--green)">+₹{{ '%.2f'|format(report.total_income) }}</td></tr>
+    <tr><td>Operating Expenses</td><td style="color:var(--red)">-₹{{ '%.2f'|format(report.total_expense) }}</td></tr>
+    <tr><td><b>Net Profit / (Loss)</b></td><td><b class="{{ 'amt pos' if report.net >= 0 else 'amt neg' }}">{{ '%.2f'|format(report.net) }}</b></td></tr>
+    <tr><td><b>Closing Balance / Capital Carried Forward</b></td><td><b>₹{{ '%.2f'|format(report.closing_balance) }}</b></td></tr>
     <tr><td>Unpaid Maintenance Dues</td><td style="color:var(--amber)">₹{{ '%.2f'|format(report.unpaid_total) }}</td></tr>
   </table>
   <div class="two-col" style="margin-top:12px;">
@@ -66,7 +67,7 @@
 {% endif %}
 
 <div class="card">
-  <div class="card-title">Income by Type</div>
+  <div class="card-title">Operating Income Breakdown</div>
   {% for k, v in report.income_by_type.items() %}
   <div class="list-row"><div class="main">{{ k }}</div><div class="amt pos">₹{{ '%.2f'|format(v) }}</div></div>
   {% else %}
@@ -75,7 +76,7 @@
 </div>
 
 <div class="card">
-  <div class="card-title">Expenses by Type</div>
+  <div class="card-title">Operating Expense Breakdown</div>
   {% for k, v in report.expense_by_type.items() %}
   <div class="list-row"><div class="main">{{ k }}</div><div class="amt neg">₹{{ '%.2f'|format(v) }}</div></div>
   {% else %}

@@ -172,8 +172,7 @@ def pdf_safe_text(value):
 def build_text_pdf(title, lines):
     max_width = 92
     line_height = 16
-    page_height = 842
-    top_y = 790
+    top_y = 700
     bottom_y = 60
     pages = []
     current = []
@@ -212,8 +211,14 @@ def build_text_pdf(title, lines):
     for page_number, page_lines in enumerate(pages, start=1):
         commands = [
             "BT",
+            "/F2 20 Tf",
+            "50 790 Td",
+            "(SUCASA WINDGATES) Tj",
+            "/F1 10 Tf",
+            "0 -18 Td",
+            "(Apartment Maintenance Report) Tj",
             "/F2 16 Tf",
-            f"50 {top_y} Td",
+            "0 -30 Td",
             f"({pdf_safe_text(title)}) Tj",
             "/F1 11 Tf",
             "0 -24 Td",
@@ -227,6 +232,12 @@ def build_text_pdf(title, lines):
             commands.append(f"({pdf_safe_text(line)}) Tj")
             commands.append(f"0 -{line_height} Td")
         commands.append("ET")
+        commands.extend([
+            "0.25 w",
+            "50 765 m",
+            "545 765 l",
+            "S",
+        ])
         stream = "\n".join(commands).encode('latin-1', errors='replace')
         content_id = add_object(
             f"<< /Length {len(stream)} >>\nstream\n{stream.decode('latin-1')}\nendstream"
@@ -870,23 +881,23 @@ def reports():
 @login_required
 def export_report(ym):
     report = month_report(ym)
-    lines = [f"Apartment Maintenance - Income & Expense Report - {report['label']}", ""]
+    lines = [f"Sucasa Windgates Profit and Loss Statement - {report['label']}", ""]
     lines.append(f"Opening Balance,{report['opening_balance']:.2f}")
     lines.append("")
-    lines.append("INCOME")
+    lines.append("OPERATING INCOME")
     lines.append("Type,Amount")
     for k, v in report['income_by_type'].items():
         lines.append(f"{k},{v:.2f}")
-    lines.append(f"Total Income,{report['total_income']:.2f}")
+    lines.append(f"Total Operating Income,{report['total_income']:.2f}")
     lines.append("")
-    lines.append("EXPENSES")
+    lines.append("OPERATING EXPENSES")
     lines.append("Type,Amount")
     for k, v in report['expense_by_type'].items():
         lines.append(f"{k},{v:.2f}")
-    lines.append(f"Total Expense,{report['total_expense']:.2f}")
+    lines.append(f"Total Operating Expenses,{report['total_expense']:.2f}")
     lines.append("")
-    lines.append(f"Net for Month,{report['net']:.2f}")
-    lines.append(f"Closing Balance (Carried Forward),{report['closing_balance']:.2f}")
+    lines.append(f"Net Profit / (Loss) for the Period,{report['net']:.2f}")
+    lines.append(f"Closing Balance / Capital Carried Forward,{report['closing_balance']:.2f}")
     lines.append("")
     lines.append(f"Unpaid Maintenance Dues,{report['unpaid_total']:.2f}")
     csv_data = "\n".join(lines)
@@ -899,19 +910,23 @@ def export_report(ym):
 def export_report_pdf(ym):
     report = month_report(ym)
     lines = [
+        f"Reporting Period: {report['label']}",
+        "",
+        "Profit and Loss Statement",
         f"Opening Balance: {report['opening_balance']:.2f}",
-        f"Total Income: {report['total_income']:.2f}",
-        f"Total Expenses: {report['total_expense']:.2f}",
-        f"Closing Balance: {report['closing_balance']:.2f}",
+        f"Operating Income: {report['total_income']:.2f}",
+        f"Operating Expenses: {report['total_expense']:.2f}",
+        f"Net Profit / (Loss): {report['net']:.2f}",
+        f"Closing Balance / Capital Carried Forward: {report['closing_balance']:.2f}",
         f"Unpaid Maintenance Dues: {report['unpaid_total']:.2f}",
         "",
-        "Income by Type",
+        "Operating Income Breakdown",
     ]
     for k, v in report['income_by_type'].items():
         lines.append(f"- {k}: {v:.2f}")
     if not report['income_by_type']:
         lines.append("- No income this month")
-    lines.extend(["", "Expenses by Type"])
+    lines.extend(["", "Operating Expense Breakdown"])
     for k, v in report['expense_by_type'].items():
         lines.append(f"- {k}: {v:.2f}")
     if not report['expense_by_type']:
@@ -920,7 +935,7 @@ def export_report_pdf(ym):
         lines.extend(["", "Flats Yet to Pay Maintenance"])
         for due in report['unpaid_by_flat']:
             lines.append(f"- Flat {due['flat_no']}: {due['amount']:.2f}")
-    pdf_data = build_text_pdf(f"Apartment Maintenance Report - {report['label']}", lines)
+    pdf_data = build_text_pdf(f"Profit and Loss Statement - {report['label']}", lines)
     return Response(pdf_data, mimetype='application/pdf',
                      headers={'Content-Disposition': f'attachment; filename=report_{ym}.pdf'})
 
@@ -1076,6 +1091,8 @@ def export_event_report_pdf(event_id):
 
     lines = [
         f"Event Date: {event.get('event_date', '')}",
+        "",
+        "Event Income and Expense Statement",
         f"Total Collected: {total_contrib:.2f}",
         f"Total Spent: {total_exp:.2f}",
         f"Net Balance: {(total_contrib - total_exp):.2f}",
