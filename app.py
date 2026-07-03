@@ -202,10 +202,12 @@ def pdf_header_and_footer_commands(title, page_number=1, total_pages=1):
         "545 42 l",
         "S",
         "BT",
-        "/F1 9 Tf",
+        "/F1 8 Tf",
         "50 28 Td",
-        f"({LETTERHEAD_TITLE} - {LETTERHEAD_ADDRESS}) Tj",
-        "310 0 Td",
+        f"({LETTERHEAD_TITLE}) Tj",
+        "0 -11 Td",
+        f"({LETTERHEAD_ADDRESS}) Tj",
+        "430 11 Td",
         f"(Page {page_number} of {total_pages}) Tj",
         "ET",
     ]
@@ -315,44 +317,44 @@ def build_profit_loss_pdf(report):
     font_regular_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     font_bold_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
 
-    commands = pdf_header_and_footer_commands(f"Profit and Loss Statement - {report['label']}")
+    commands = pdf_header_and_footer_commands(f"Income and Expenditure Statement - {report['label']}")
     commands.extend([
         "BT",
         "/F1 11 Tf",
-        "50 680 Td",
+        "50 650 Td",
         f"(Opening Balance: {report['opening_balance']:.2f}) Tj",
         "0 -18 Td",
-        f"(Net Profit / \\(Loss\\): {report['net']:.2f}) Tj",
+        f"(Excess of Income over Expenditure: {report['net']:.2f}) Tj",
         "0 -18 Td",
         f"(Closing Balance / Capital Carried Forward: {report['closing_balance']:.2f}) Tj",
         "ET",
         "0.25 w",
-        "50 660 m",
-        "545 660 l",
+        "50 585 m",
+        "545 585 l",
         "S",
-        "50 660 m",
-        "50 240 l",
+        "50 585 m",
+        "50 250 l",
         "S",
-        "297.5 660 m",
-        "297.5 240 l",
+        "297.5 585 m",
+        "297.5 250 l",
         "S",
-        "545 660 m",
-        "545 240 l",
+        "545 585 m",
+        "545 250 l",
         "S",
-        "50 630 m",
-        "545 630 l",
+        "50 555 m",
+        "545 555 l",
         "S",
         "BT",
         "/F2 12 Tf",
-        "60 640 Td",
+        "60 564 Td",
         "(Operating Income) Tj",
         "250 0 Td",
         "(Operating Expenses) Tj",
         "ET",
     ])
 
-    start_y = 612
-    row_height = 18
+    start_y = 530
+    row_height = 22
     for i in range(row_count):
         y = start_y - (i * row_height)
         commands.extend([
@@ -397,7 +399,7 @@ def build_profit_loss_pdf(report):
     ])
 
     if report['unpaid_by_flat']:
-        unpaid_y = total_y - 56
+        unpaid_y = total_y - 54
         commands.extend([
             "BT",
             "/F2 12 Tf",
@@ -1046,7 +1048,7 @@ def reports():
 @login_required
 def export_report(ym):
     report = month_report(ym)
-    lines = [f"Sucasa Windgates Profit and Loss Statement - {report['label']}", ""]
+    lines = [f"Sucasa Windgates Income and Expenditure Statement - {report['label']}", ""]
     lines.append(f"Opening Balance,{report['opening_balance']:.2f}")
     lines.append("")
     lines.append("OPERATING INCOME")
@@ -1061,7 +1063,7 @@ def export_report(ym):
         lines.append(f"{k},{v:.2f}")
     lines.append(f"Total Operating Expenses,{report['total_expense']:.2f}")
     lines.append("")
-    lines.append(f"Net Profit / (Loss) for the Period,{report['net']:.2f}")
+    lines.append(f"Excess of Income over Expenditure,{report['net']:.2f}")
     lines.append(f"Closing Balance / Capital Carried Forward,{report['closing_balance']:.2f}")
     lines.append("")
     lines.append(f"Unpaid Maintenance Dues,{report['unpaid_total']:.2f}")
@@ -1077,11 +1079,11 @@ def export_report_pdf(ym):
     lines = [
         f"Reporting Period: {report['label']}",
         "",
-        "Profit and Loss Statement",
+        "Income and Expenditure Statement",
         f"Opening Balance: {report['opening_balance']:.2f}",
         f"Operating Income: {report['total_income']:.2f}",
         f"Operating Expenses: {report['total_expense']:.2f}",
-        f"Net Profit / (Loss): {report['net']:.2f}",
+        f"Excess of Income over Expenditure: {report['net']:.2f}",
         f"Closing Balance / Capital Carried Forward: {report['closing_balance']:.2f}",
         f"Unpaid Maintenance Dues: {report['unpaid_total']:.2f}",
         "",

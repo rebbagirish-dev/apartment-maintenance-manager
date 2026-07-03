@@ -164,8 +164,8 @@ class ResidentAccessTests(unittest.TestCase):
         response = self.client.get('/reports?month=2026-07')
         text = response.get_data(as_text=True)
 
-        self.assertIn('Profit and Loss Statement', text)
-        self.assertIn('Net Profit / (Loss)', text)
+        self.assertIn('Income and Expenditure Statement', text)
+        self.assertIn('Excess of Income over Expenditure', text)
         self.assertIn('Flats Yet to Pay Maintenance', text)
         self.assertIn('Flat A-101', text)
         self.assertNotIn('Flat B-202</div>', text)
@@ -197,7 +197,7 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('report_2026-07.pdf', response.headers.get('Content-Disposition', ''))
         self.assertTrue(response.data.startswith(b'%PDF-1.4'))
         self.assertIn(b'SUCASA WINDGATES', response.data)
-        self.assertIn(b'Profit and Loss Statement', response.data)
+        self.assertIn(b'Income and Expenditure Statement', response.data)
 
     def test_event_report_pdf_download(self):
         self.login('admin', 'admin123')

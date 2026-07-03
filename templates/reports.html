@@ -36,14 +36,14 @@
 {% endif %}
 
 <div class="card">
-  <div class="card-title">Profit and Loss Statement</div>
+  <div class="card-title">Income and Expenditure Statement</div>
   <div class="pnl-summary">
     <div class="pnl-summary-item">
       <div class="lbl">Opening Balance</div>
       <div class="num">₹{{ '%.2f'|format(report.opening_balance) }}</div>
     </div>
     <div class="pnl-summary-item">
-      <div class="lbl">Net Profit / (Loss)</div>
+      <div class="lbl">Excess of Income over Expenditure</div>
       <div class="num {{ 'pos' if report.net >= 0 else 'neg' }}">₹{{ '%.2f'|format(report.net) }}</div>
     </div>
     <div class="pnl-summary-item">
