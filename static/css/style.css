@@ -289,6 +289,55 @@ h2.page-title { font-size: 18px; margin: 4px 0 14px; }
 table.report-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 table.report-table td { padding: 8px 4px; border-bottom: 1px solid var(--border); }
 table.report-table td:last-child { text-align: right; font-weight: 600; }
+.pnl-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.pnl-summary-item {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 12px;
+}
+.pnl-summary-item .lbl {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.pnl-summary-item .num {
+  font-size: 16px;
+  font-weight: 700;
+}
+.pnl-summary-item .num.pos { color: var(--green); }
+.pnl-summary-item .num.neg { color: var(--red); }
+.pnl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.pnl-column {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+.pnl-column-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.pnl-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 700;
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+}
 .trend-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12.5px; }
 .trend-bar-track { flex: 1; height: 8px; background: #f0f0f3; border-radius: 6px; overflow: hidden; display: flex; }
 .login-wrap { display: flex; align-items: flex-start; justify-content: center; padding: 4px 20px 20px; }
@@ -297,3 +346,9 @@ table.report-table td:last-child { text-align: right; font-weight: 600; }
 .login-title { text-align: center; font-weight: 800; font-size: 20px; margin-bottom: 4px; }
 .login-sub { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 12px; }
 .login-card .flash { margin-bottom: 14px; }
+@media (max-width: 480px) {
+  .pnl-summary,
+  .pnl-grid {
+    grid-template-columns: 1fr;
+  }
+}

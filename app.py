@@ -169,11 +169,54 @@ def pdf_safe_text(value):
     return str(value).replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
 
 
+LETTERHEAD_TITLE = "SUCASA WINDGATES"
+LETTERHEAD_SUBTITLE = "Apartment Maintenance Statement"
+LETTERHEAD_ADDRESS = "Shirdisainagar Road No.1, Manikonda, Hyderabad-500089"
+
+
+def pdf_header_and_footer_commands(title, page_number=1, total_pages=1):
+    generated_on = date.today().isoformat()
+    commands = [
+        "BT",
+        "/F2 20 Tf",
+        "50 792 Td",
+        f"({LETTERHEAD_TITLE}) Tj",
+        "/F1 10 Tf",
+        "0 -16 Td",
+        f"({LETTERHEAD_SUBTITLE}) Tj",
+        "0 -14 Td",
+        f"({LETTERHEAD_ADDRESS}) Tj",
+        "/F2 15 Tf",
+        "0 -28 Td",
+        f"({pdf_safe_text(title)}) Tj",
+        "/F1 10 Tf",
+        "0 -18 Td",
+        f"(Generated on: {generated_on}) Tj",
+        "ET",
+        "0.45 w",
+        "50 738 m",
+        "545 738 l",
+        "S",
+        "0.30 w",
+        "50 42 m",
+        "545 42 l",
+        "S",
+        "BT",
+        "/F1 9 Tf",
+        "50 28 Td",
+        f"({LETTERHEAD_TITLE} - {LETTERHEAD_ADDRESS}) Tj",
+        "310 0 Td",
+        f"(Page {page_number} of {total_pages}) Tj",
+        "ET",
+    ]
+    return commands
+
+
 def build_text_pdf(title, lines):
     max_width = 92
     line_height = 16
-    top_y = 700
-    bottom_y = 60
+    top_y = 680
+    bottom_y = 72
     pages = []
     current = []
     current_y = top_y
@@ -209,35 +252,18 @@ def build_text_pdf(title, lines):
     page_ids = []
     content_ids = []
     for page_number, page_lines in enumerate(pages, start=1):
-        commands = [
+        commands = pdf_header_and_footer_commands(title, page_number, len(pages))
+        commands.extend([
             "BT",
-            "/F2 20 Tf",
-            "50 790 Td",
-            "(SUCASA WINDGATES) Tj",
-            "/F1 10 Tf",
-            "0 -18 Td",
-            "(Apartment Maintenance Report) Tj",
-            "/F2 16 Tf",
-            "0 -30 Td",
-            f"({pdf_safe_text(title)}) Tj",
             "/F1 11 Tf",
-            "0 -24 Td",
-        ]
+            f"50 {top_y} Td",
+        ])
         if len(pages) > 1:
-            commands.extend([
-                f"(Page {page_number} of {len(pages)}) Tj",
-                "0 -20 Td",
-            ])
+            commands.extend([])
         for line in page_lines:
             commands.append(f"({pdf_safe_text(line)}) Tj")
             commands.append(f"0 -{line_height} Td")
         commands.append("ET")
-        commands.extend([
-            "0.25 w",
-            "50 765 m",
-            "545 765 l",
-            "S",
-        ])
         stream = "\n".join(commands).encode('latin-1', errors='replace')
         content_id = add_object(
             f"<< /Length {len(stream)} >>\nstream\n{stream.decode('latin-1')}\nendstream"
@@ -255,6 +281,145 @@ def build_text_pdf(title, lines):
             f"/Contents {content_id} 0 R >>"
         )
 
+    catalog_id = add_object(f"<< /Type /Catalog /Pages {pages_id} 0 R >>")
+
+    pdf = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{index} 0 obj\n{obj}\nendobj\n".encode('latin-1'))
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode('latin-1'))
+    pdf.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode('latin-1'))
+    pdf.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\nstartxref\n{xref_offset}\n%%EOF".encode('latin-1')
+    )
+    return bytes(pdf)
+
+
+def build_profit_loss_pdf(report):
+    income_items = list(report['income_by_type'].items()) or [('No income this month', 0.0)]
+    expense_items = list(report['expense_by_type'].items()) or [('No expenses this month', 0.0)]
+    row_count = max(len(income_items), len(expense_items))
+    total_income_text = f"{report['total_income']:.2f}"
+    total_expense_text = f"{report['total_expense']:.2f}"
+
+    objects = []
+
+    def add_object(data):
+        objects.append(data)
+        return len(objects)
+
+    font_regular_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    font_bold_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
+
+    commands = pdf_header_and_footer_commands(f"Profit and Loss Statement - {report['label']}")
+    commands.extend([
+        "BT",
+        "/F1 11 Tf",
+        "50 680 Td",
+        f"(Opening Balance: {report['opening_balance']:.2f}) Tj",
+        "0 -18 Td",
+        f"(Net Profit / \\(Loss\\): {report['net']:.2f}) Tj",
+        "0 -18 Td",
+        f"(Closing Balance / Capital Carried Forward: {report['closing_balance']:.2f}) Tj",
+        "ET",
+        "0.25 w",
+        "50 660 m",
+        "545 660 l",
+        "S",
+        "50 660 m",
+        "50 240 l",
+        "S",
+        "297.5 660 m",
+        "297.5 240 l",
+        "S",
+        "545 660 m",
+        "545 240 l",
+        "S",
+        "50 630 m",
+        "545 630 l",
+        "S",
+        "BT",
+        "/F2 12 Tf",
+        "60 640 Td",
+        "(Operating Income) Tj",
+        "250 0 Td",
+        "(Operating Expenses) Tj",
+        "ET",
+    ])
+
+    start_y = 612
+    row_height = 18
+    for i in range(row_count):
+        y = start_y - (i * row_height)
+        commands.extend([
+            "0.20 w",
+            f"50 {y - 8} m",
+            f"545 {y - 8} l",
+            "S",
+        ])
+        income_name, income_amount = income_items[i] if i < len(income_items) else ('', '')
+        expense_name, expense_amount = expense_items[i] if i < len(expense_items) else ('', '')
+        commands.extend([
+            "BT",
+            "/F1 10 Tf",
+            f"60 {y} Td",
+            f"({pdf_safe_text(income_name)}) Tj",
+            f"{200 if income_name else 200} 0 Td",
+            f"({pdf_safe_text(f'{income_amount:.2f}' if income_name else '')}) Tj",
+            f"{50 if expense_name or expense_amount != '' else 50} 0 Td",
+            f"({pdf_safe_text(expense_name)}) Tj",
+            f"{150 if expense_name else 150} 0 Td",
+            f"({pdf_safe_text(f'{expense_amount:.2f}' if expense_name else '')}) Tj",
+            "ET",
+        ])
+
+    total_y = start_y - (row_count * row_height) - 8
+    commands.extend([
+        "0.35 w",
+        f"50 {total_y} m",
+        f"545 {total_y} l",
+        "S",
+        "BT",
+        "/F2 11 Tf",
+        f"60 {total_y - 18} Td",
+        "(Total Operating Income) Tj",
+        "160 0 Td",
+        f"({pdf_safe_text(total_income_text)}) Tj",
+        "90 0 Td",
+        "(Total Operating Expenses) Tj",
+        "170 0 Td",
+        f"({pdf_safe_text(total_expense_text)}) Tj",
+        "ET",
+    ])
+
+    if report['unpaid_by_flat']:
+        unpaid_y = total_y - 56
+        commands.extend([
+            "BT",
+            "/F2 12 Tf",
+            f"50 {unpaid_y} Td",
+            "(Flats Yet to Pay Maintenance) Tj",
+            "/F1 10 Tf",
+            "0 -18 Td",
+        ])
+        for due in report['unpaid_by_flat'][:10]:
+            commands.append(f"(Flat {pdf_safe_text(due['flat_no'])}: {due['amount']:.2f}) Tj")
+            commands.append("0 -14 Td")
+        commands.append("ET")
+
+    stream = "\n".join(commands).encode('latin-1', errors='replace')
+    content_id = add_object(f"<< /Length {len(stream)} >>\nstream\n{stream.decode('latin-1')}\nendstream")
+    page_id = add_object("")
+    pages_id = add_object(f"<< /Type /Pages /Kids [{page_id} 0 R] /Count 1 >>")
+    objects[page_id - 1] = (
+        f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 595 842] "
+        f"/Resources << /Font << /F1 {font_regular_id} 0 R /F2 {font_bold_id} 0 R >> >> "
+        f"/Contents {content_id} 0 R >>"
+    )
     catalog_id = add_object(f"<< /Type /Catalog /Pages {pages_id} 0 R >>")
 
     pdf = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
@@ -935,7 +1100,7 @@ def export_report_pdf(ym):
         lines.extend(["", "Flats Yet to Pay Maintenance"])
         for due in report['unpaid_by_flat']:
             lines.append(f"- Flat {due['flat_no']}: {due['amount']:.2f}")
-    pdf_data = build_text_pdf(f"Profit and Loss Statement - {report['label']}", lines)
+    pdf_data = build_profit_loss_pdf(report)
     return Response(pdf_data, mimetype='application/pdf',
                      headers={'Content-Disposition': f'attachment; filename=report_{ym}.pdf'})
 
