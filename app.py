@@ -317,6 +317,12 @@ def build_profit_loss_pdf(report):
     font_regular_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     font_bold_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
 
+    table_left = 50
+    table_mid = 297.5
+    table_right = 545
+    amount_left_x = 258
+    expense_name_x = 310
+    expense_amount_x = 505
     commands = pdf_header_and_footer_commands(f"Income and Expenditure Statement - {report['label']}")
     commands.extend([
         "BT",
@@ -329,9 +335,6 @@ def build_profit_loss_pdf(report):
         f"(Closing Balance / Capital Carried Forward: {report['closing_balance']:.2f}) Tj",
         "ET",
         "0.25 w",
-        "50 585 m",
-        "545 585 l",
-        "S",
         "50 585 m",
         "50 250 l",
         "S",
@@ -359,8 +362,8 @@ def build_profit_loss_pdf(report):
         y = start_y - (i * row_height)
         commands.extend([
             "0.20 w",
-            f"50 {y - 8} m",
-            f"545 {y - 8} l",
+            f"{table_left} {y - 8} m",
+            f"{table_right} {y - 8} l",
             "S",
         ])
         income_name, income_amount = income_items[i] if i < len(income_items) else ('', '')
@@ -370,36 +373,89 @@ def build_profit_loss_pdf(report):
             "/F1 10 Tf",
             f"60 {y} Td",
             f"({pdf_safe_text(income_name)}) Tj",
-            f"{200 if income_name else 200} 0 Td",
-            f"({pdf_safe_text(f'{income_amount:.2f}' if income_name else '')}) Tj",
-            f"{50 if expense_name or expense_amount != '' else 50} 0 Td",
-            f"({pdf_safe_text(expense_name)}) Tj",
-            f"{150 if expense_name else 150} 0 Td",
-            f"({pdf_safe_text(f'{expense_amount:.2f}' if expense_name else '')}) Tj",
+            "ET",
+        ])
+        if income_name:
+            commands.extend([
+                "BT",
+                "/F1 10 Tf",
+                f"{amount_left_x} {y} Td",
+                f"({pdf_safe_text(f'{income_amount:.2f}')}) Tj",
+                "ET",
+            ])
+        if expense_name:
+            commands.extend([
+                "BT",
+                "/F1 10 Tf",
+                f"{expense_name_x} {y} Td",
+                f"({pdf_safe_text(expense_name)}) Tj",
+                "ET",
+            ])
+        if expense_name:
+            commands.extend([
+                "BT",
+                "/F1 10 Tf",
+                f"{expense_amount_x} {y} Td",
+                f"({pdf_safe_text(f'{expense_amount:.2f}')}) Tj",
+                "ET",
+            ])
+        commands.extend([
+            "BT",
+            "/F1 10 Tf",
+            "0 0 Td",
             "ET",
         ])
 
     total_y = start_y - (row_count * row_height) - 8
     commands.extend([
         "0.35 w",
-        f"50 {total_y} m",
-        f"545 {total_y} l",
+        f"{table_left} {total_y} m",
+        f"{table_right} {total_y} l",
+        "S",
+        f"{table_left} {total_y} m",
+        f"{table_right} {total_y} l",
         "S",
         "BT",
         "/F2 11 Tf",
         f"60 {total_y - 18} Td",
         "(Total Operating Income) Tj",
-        "160 0 Td",
+        "ET",
+        "BT",
+        "/F2 11 Tf",
+        f"{amount_left_x - 20} {total_y - 18} Td",
         f"({pdf_safe_text(total_income_text)}) Tj",
-        "90 0 Td",
+        "ET",
+        "BT",
+        "/F2 11 Tf",
+        f"{expense_name_x} {total_y - 18} Td",
         "(Total Operating Expenses) Tj",
-        "170 0 Td",
+        "ET",
+        "BT",
+        "/F2 11 Tf",
+        f"{expense_amount_x} {total_y - 18} Td",
         f"({pdf_safe_text(total_expense_text)}) Tj",
         "ET",
     ])
 
+    table_bottom_y = total_y - 30
+    commands.extend([
+        "0.35 w",
+        f"{table_left} {table_bottom_y} m",
+        f"{table_right} {table_bottom_y} l",
+        "S",
+        f"{table_left} 585 m",
+        f"{table_left} {table_bottom_y} l",
+        "S",
+        f"{table_mid} 585 m",
+        f"{table_mid} {table_bottom_y} l",
+        "S",
+        f"{table_right} 585 m",
+        f"{table_right} {table_bottom_y} l",
+        "S",
+    ])
+
     if report['unpaid_by_flat']:
-        unpaid_y = total_y - 54
+        unpaid_y = table_bottom_y - 32
         commands.extend([
             "BT",
             "/F2 12 Tf",
