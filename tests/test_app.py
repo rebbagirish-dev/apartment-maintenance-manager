@@ -2,6 +2,7 @@ import unittest
 import uuid
 from pathlib import Path
 import shutil
+import os
 
 from werkzeug.security import generate_password_hash
 
@@ -187,6 +188,36 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertEqual(updated['username'], 'manager_renamed')
         self.assertEqual(updated['role'], 'tenant')
         self.assertEqual(updated['flat_id'], self.flat_two_id)
+
+    def test_admin_notice_page_loads(self):
+        self.login('admin', 'admin123')
+        response = self.client.get('/notices')
+        text = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('WhatsApp Notices', text)
+        self.assertIn('Select specific flats', text)
+
+    def test_notice_send_requires_configuration(self):
+        self.login('admin', 'admin123')
+        old_sid = os.environ.pop('TWILIO_ACCOUNT_SID', None)
+        old_token = os.environ.pop('TWILIO_AUTH_TOKEN', None)
+        old_from = os.environ.pop('WHATSAPP_FROM_NUMBER', None)
+        try:
+            response = self.client.post('/notices/send', data={
+                'flat_ids': str(self.flat_one_id),
+                'message': 'Test notice',
+            }, follow_redirects=True)
+        finally:
+            if old_sid is not None:
+                os.environ['TWILIO_ACCOUNT_SID'] = old_sid
+            if old_token is not None:
+                os.environ['TWILIO_AUTH_TOKEN'] = old_token
+            if old_from is not None:
+                os.environ['WHATSAPP_FROM_NUMBER'] = old_from
+        text = response.get_data(as_text=True)
+
+        self.assertIn('WhatsApp sending is not configured yet.', text)
 
     def test_monthly_report_pdf_download(self):
         self.login('admin', 'admin123')

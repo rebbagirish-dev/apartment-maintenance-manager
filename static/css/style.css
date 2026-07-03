@@ -204,8 +204,20 @@ input, select, textarea {
   font-size: 15px; background: #fff; color: var(--text); font-family: inherit;
 }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+textarea { resize: vertical; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; }
 .checkbox-row input { width: auto; }
+.notice-flat-list { display: grid; gap: 10px; }
+.notice-flat-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+.notice-flat-item input { width: auto; margin-top: 3px; }
 
 /* ---- Month picker ---- */
 .month-picker { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }

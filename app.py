@@ -2,6 +2,10 @@ import os
 from datetime import datetime, date, timedelta
 from functools import wraps
 import textwrap
+import json
+import urllib.parse
+import urllib.request
+import base64
 
 from flask import (Flask, render_template, request, redirect, url_for,
                     session, flash, jsonify, Response)
@@ -65,7 +69,7 @@ TENANT_ALLOWED_ENDPOINTS = {
 }
 OWNER_BLOCKED_ENDPOINTS = {
     'users', 'edit_user', 'delete_user', 'income_types', 'delete_income_type',
-    'expense_types', 'delete_expense_type', 'settings_page',
+    'expense_types', 'delete_expense_type', 'settings_page', 'notices', 'send_notice',
 }
 
 
@@ -163,6 +167,56 @@ def resident_due_summary(flat_id, ym):
         'outstanding_count': len(unpaid_all),
         'recent_tx': tx[:6],
     }
+
+
+def whatsapp_configured():
+    return all([
+        os.environ.get('TWILIO_ACCOUNT_SID'),
+        os.environ.get('TWILIO_AUTH_TOKEN'),
+        os.environ.get('WHATSAPP_FROM_NUMBER'),
+    ])
+
+
+def normalize_whatsapp_number(raw_number):
+    raw_number = (raw_number or '').strip()
+    if not raw_number:
+        return None
+    if raw_number.startswith('+'):
+        digits = '+' + ''.join(ch for ch in raw_number if ch.isdigit())
+    else:
+        only_digits = ''.join(ch for ch in raw_number if ch.isdigit())
+        if len(only_digits) == 10:
+            digits = f'+91{only_digits}'
+        elif only_digits:
+            digits = f'+{only_digits}'
+        else:
+            return None
+    return digits if len(digits) >= 11 else None
+
+
+def send_twilio_whatsapp_message(to_number, body):
+    sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
+    token = os.environ.get('TWILIO_AUTH_TOKEN', '')
+    from_number = os.environ.get('WHATSAPP_FROM_NUMBER', '').strip()
+    if not sid or not token or not from_number:
+        return False, 'WhatsApp provider is not configured.'
+
+    endpoint = f'https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json'
+    payload = urllib.parse.urlencode({
+        'From': f'whatsapp:{from_number}',
+        'To': f'whatsapp:{to_number}',
+        'Body': body,
+    }).encode('utf-8')
+    auth = base64.b64encode(f'{sid}:{token}'.encode('utf-8')).decode('ascii')
+    request_obj = urllib.request.Request(endpoint, data=payload, method='POST')
+    request_obj.add_header('Authorization', f'Basic {auth}')
+    request_obj.add_header('Content-Type', 'application/x-www-form-urlencoded')
+    try:
+        with urllib.request.urlopen(request_obj, timeout=20) as response:
+            response_data = json.loads(response.read().decode('utf-8'))
+        return True, response_data.get('sid', 'sent')
+    except Exception as exc:
+        return False, str(exc)
 
 
 def pdf_safe_text(value):
@@ -672,6 +726,68 @@ def settings_page():
         return redirect(url_for('settings_page'))
     return render_template('settings.html', settings=get_settings(),
                             balance=overall_balance(), corpus=corpus_fund_balance())
+
+
+@app.route('/notices')
+@login_required
+@admin_required
+def notices():
+    flats = sorted(db.load('flats'), key=lambda f: f['flat_no'])
+    for flat in flats:
+        flat['normalized_contact'] = normalize_whatsapp_number(flat.get('contact'))
+    notice_log = sorted(db.load('notice_log'), key=lambda x: x.get('created_at', ''), reverse=True)[:10]
+    return render_template('notices.html', flats=flats, notice_log=notice_log,
+                            whatsapp_ready=whatsapp_configured())
+
+
+@app.route('/notices/send', methods=['POST'])
+@login_required
+@admin_required
+def send_notice():
+    selected_ids = request.form.getlist('flat_ids')
+    message = request.form.get('message', '').strip()
+    if not selected_ids:
+        flash('Please select at least one flat.', 'error')
+        return redirect(url_for('notices'))
+    if not message:
+        flash('Please enter the notice message.', 'error')
+        return redirect(url_for('notices'))
+    if not whatsapp_configured():
+        flash('WhatsApp sending is not configured yet. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and WHATSAPP_FROM_NUMBER.', 'error')
+        return redirect(url_for('notices'))
+
+    selected_id_set = {int(x) for x in selected_ids if x.isdigit()}
+    flats = [f for f in db.load('flats') if f['id'] in selected_id_set]
+    sent = []
+    failed = []
+    for flat in flats:
+        number = normalize_whatsapp_number(flat.get('contact'))
+        if not number:
+            failed.append({'flat_no': flat['flat_no'], 'reason': 'Missing or invalid contact number'})
+            continue
+        ok, detail = send_twilio_whatsapp_message(number, message)
+        if ok:
+            sent.append({'flat_no': flat['flat_no'], 'to': number, 'message_sid': detail})
+        else:
+            failed.append({'flat_no': flat['flat_no'], 'reason': detail})
+
+    db.insert('notice_log', {
+        'created_at': datetime.now().isoformat(),
+        'created_by': session.get('username'),
+        'message': message,
+        'provider': 'twilio_whatsapp',
+        'selected_flat_ids': sorted(selected_id_set),
+        'sent': sent,
+        'failed': failed,
+    })
+
+    if sent and not failed:
+        flash(f'WhatsApp notice sent to {len(sent)} flat(s).', 'success')
+    elif sent and failed:
+        flash(f'Notice sent to {len(sent)} flat(s), but {len(failed)} failed.', 'error')
+    else:
+        flash('Notice could not be sent to any selected flat.', 'error')
+    return redirect(url_for('notices'))
 
 
 @app.route('/corpus-fund')

@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}WhatsApp Notices{% endblock %}
+{% block header_title %}WhatsApp Notices{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-title">Notice Broadcast</div>
+  <div class="sub" style="margin-bottom:12px;">
+    Select specific flats and send a WhatsApp notice using the contact number already stored for that flat.
+    {% if whatsapp_ready %}
+    The sender is configured.
+    {% else %}
+    WhatsApp sending is not configured yet. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `WHATSAPP_FROM_NUMBER` on the server first.
+    {% endif %}
+  </div>
+  <div class="sub" style="margin-bottom:12px;">
+    Some WhatsApp business-initiated messages may require an approved provider template depending on account policy.
+  </div>
+  <form method="POST" action="{{ url_for('send_notice') }}">
+    <div class="card-title" style="margin-top:0;">Select Flats</div>
+    <div class="notice-flat-list">
+      {% for f in flats %}
+      <label class="notice-flat-item">
+        <input type="checkbox" name="flat_ids" value="{{ f.id }}">
+        <div>
+          <div class="main">Flat {{ f.flat_no }}</div>
+          <div class="sub">
+            {{ f.owner_name or f.tenant_name or 'No resident name' }}
+            {% if f.contact %} · {{ f.contact }}{% endif %}
+            {% if not f.normalized_contact %} · WhatsApp number not ready{% endif %}
+          </div>
+        </div>
+      </label>
+      {% else %}
+      <div class="empty-state">No flats available.</div>
+      {% endfor %}
+    </div>
+    <div class="form-group" style="margin-top:14px;">
+      <label>Message</label>
+      <textarea name="message" rows="6" placeholder="Type the notice, announcement, or information you want to send to the selected flats." required></textarea>
+    </div>
+    <button class="btn block" type="submit">Send WhatsApp Notice</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title">Recent Notice Log</div>
+  {% for item in notice_log %}
+  <div class="list-row">
+    <div>
+      <div class="main">{{ item.created_at[:16].replace('T', ' ') }}</div>
+      <div class="sub">{{ item.message }}</div>
+      <div class="sub">Sent: {{ item.sent|length }} · Failed: {{ item.failed|length }} · By: {{ item.created_by }}</div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">No notice activity yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

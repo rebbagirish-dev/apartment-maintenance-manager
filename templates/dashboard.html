@@ -67,6 +67,12 @@
     <a href="{{ url_for('flats') }}" class="btn secondary sm block">Manage Flats</a>
     <a href="{{ url_for('watchman') }}" class="btn secondary sm block">Watchman Ledger</a>
   </div>
+  {% if session.role == 'admin' %}
+  <div class="two-col" style="margin-top:8px;">
+    <a href="{{ url_for('notices') }}" class="btn secondary sm block">Send WhatsApp Notice</a>
+    <span></span>
+  </div>
+  {% endif %}
 </div>
 {% endif %}
 
