@@ -2,10 +2,6 @@ import os
 from datetime import datetime, date, timedelta
 from functools import wraps
 import textwrap
-import json
-import urllib.parse
-import urllib.request
-import base64
 
 from flask import (Flask, render_template, request, redirect, url_for,
                     session, flash, jsonify, Response)
@@ -64,14 +60,13 @@ def admin_required(view):
 
 TENANT_ALLOWED_ENDPOINTS = {
     'reports', 'export_report', 'export_report_pdf', 'event_report', 'export_event_report',
-    'export_event_report_pdf',
+    'export_event_report_pdf', 'export_tasks_report_csv', 'export_tasks_report_pdf',
     'logout', 'static', 'manifest', 'service_worker',
 }
 OWNER_BLOCKED_ENDPOINTS = {
     'users', 'edit_user', 'delete_user', 'income_types', 'delete_income_type',
-    'expense_types', 'delete_expense_type', 'settings_page', 'notices', 'send_notice',
+    'expense_types', 'delete_expense_type', 'settings_page', 'tasks', 'edit_task', 'delete_task',
 }
-
 
 @app.before_request
 def enforce_role_access():
@@ -169,54 +164,58 @@ def resident_due_summary(flat_id, ym):
     }
 
 
-def whatsapp_configured():
-    return all([
-        os.environ.get('TWILIO_ACCOUNT_SID'),
-        os.environ.get('TWILIO_AUTH_TOKEN'),
-        os.environ.get('WHATSAPP_FROM_NUMBER'),
-    ])
+TASK_STATUSES = ['Not Started', 'In Progress', 'At Completion', 'Completed', 'On Hold']
+TASK_PRIORITIES = ['Low', 'Medium', 'High', 'Critical']
 
 
-def normalize_whatsapp_number(raw_number):
-    raw_number = (raw_number or '').strip()
-    if not raw_number:
-        return None
-    if raw_number.startswith('+'):
-        digits = '+' + ''.join(ch for ch in raw_number if ch.isdigit())
-    else:
-        only_digits = ''.join(ch for ch in raw_number if ch.isdigit())
-        if len(only_digits) == 10:
-            digits = f'+91{only_digits}'
-        elif only_digits:
-            digits = f'+{only_digits}'
-        else:
-            return None
-    return digits if len(digits) >= 11 else None
+def task_status_badge(status):
+    mapping = {
+        'Not Started': 'onetime',
+        'In Progress': 'recurring',
+        'At Completion': 'paid',
+        'Completed': 'paid',
+        'On Hold': 'unpaid',
+    }
+    return mapping.get(status, 'onetime')
 
 
-def send_twilio_whatsapp_message(to_number, body):
-    sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
-    token = os.environ.get('TWILIO_AUTH_TOKEN', '')
-    from_number = os.environ.get('WHATSAPP_FROM_NUMBER', '').strip()
-    if not sid or not token or not from_number:
-        return False, 'WhatsApp provider is not configured.'
+def decorate_tasks(tasks):
+    for task in tasks:
+        task['status_badge'] = task_status_badge(task.get('progress', 'Not Started'))
+        task['is_completed'] = task.get('progress') == 'Completed'
+        deadline = task.get('deadline') or ''
+        task['is_overdue'] = bool(deadline and deadline < date.today().isoformat() and not task['is_completed'])
+    return tasks
 
-    endpoint = f'https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json'
-    payload = urllib.parse.urlencode({
-        'From': f'whatsapp:{from_number}',
-        'To': f'whatsapp:{to_number}',
-        'Body': body,
-    }).encode('utf-8')
-    auth = base64.b64encode(f'{sid}:{token}'.encode('utf-8')).decode('ascii')
-    request_obj = urllib.request.Request(endpoint, data=payload, method='POST')
-    request_obj.add_header('Authorization', f'Basic {auth}')
-    request_obj.add_header('Content-Type', 'application/x-www-form-urlencoded')
-    try:
-        with urllib.request.urlopen(request_obj, timeout=20) as response:
-            response_data = json.loads(response.read().decode('utf-8'))
-        return True, response_data.get('sid', 'sent')
-    except Exception as exc:
-        return False, str(exc)
+
+def sorted_tasks(tasks):
+    return decorate_tasks(sorted(tasks, key=lambda x: (x.get('progress') == 'Completed', x.get('deadline') or '9999-99', x.get('created_date') or '9999-99')))
+
+
+def filter_tasks(tasks, status='', owner='', deadline_filter=''):
+    filtered = list(tasks)
+    if status:
+        filtered = [t for t in filtered if t.get('progress') == status]
+    if owner:
+        filtered = [t for t in filtered if owner.lower() in (t.get('owner') or '').lower()]
+    if deadline_filter == 'overdue':
+        filtered = [t for t in filtered if t.get('is_overdue')]
+    elif deadline_filter == 'upcoming':
+        today_iso = date.today().isoformat()
+        filtered = [t for t in filtered if t.get('deadline') and t.get('deadline') >= today_iso and not t.get('is_completed')]
+    elif deadline_filter == 'no_deadline':
+        filtered = [t for t in filtered if not t.get('deadline')]
+    return filtered
+
+
+def summarize_tasks(tasks):
+    return {
+        'total': len(tasks),
+        'completed': sum(1 for t in tasks if t.get('progress') == 'Completed'),
+        'in_progress': sum(1 for t in tasks if t.get('progress') in ('In Progress', 'At Completion')),
+        'not_started': sum(1 for t in tasks if t.get('progress') == 'Not Started'),
+        'overdue': sum(1 for t in tasks if t.get('is_overdue')),
+    }
 
 
 def pdf_safe_text(value):
@@ -701,12 +700,16 @@ def dashboard():
 
     resident_flat = current_user_flat()
     resident_summary = resident_due_summary(resident_flat['id'], ym) if resident_flat else None
+    task_items = sorted_tasks(db.load('tasks'))
+    task_summary = summarize_tasks(task_items)
+    upcoming_tasks = [t for t in task_items if not t.get('is_completed')][:5]
 
     return render_template('dashboard.html', balance=balance, report=report,
                             flat_count=len(active_flats), watchman_due=watchman_due,
                             recent_expenses=recent_expenses, ym=ym,
                             corpus=corpus_fund_balance(), resident_flat=resident_flat,
-                            resident_summary=resident_summary)
+                            resident_summary=resident_summary, task_summary=task_summary,
+                            upcoming_tasks=upcoming_tasks)
 
 
 @app.route('/settings', methods=['GET', 'POST'])
@@ -728,66 +731,59 @@ def settings_page():
                             balance=overall_balance(), corpus=corpus_fund_balance())
 
 
-@app.route('/notices')
+@app.route('/tasks', methods=['GET', 'POST'])
 @login_required
-@admin_required
-def notices():
-    flats = sorted(db.load('flats'), key=lambda f: f['flat_no'])
-    for flat in flats:
-        flat['normalized_contact'] = normalize_whatsapp_number(flat.get('contact'))
-    notice_log = sorted(db.load('notice_log'), key=lambda x: x.get('created_at', ''), reverse=True)[:10]
-    return render_template('notices.html', flats=flats, notice_log=notice_log,
-                            whatsapp_ready=whatsapp_configured())
+def tasks():
+    status_filter = request.args.get('status', '').strip()
+    owner_filter = request.args.get('owner', '').strip()
+    deadline_filter = request.args.get('deadline_filter', '').strip()
+    if request.method == 'POST':
+        db.insert('tasks', {
+            'name': request.form['name'].strip(),
+            'description': request.form.get('description', '').strip(),
+            'owner': request.form.get('owner', '').strip(),
+            'deadline': request.form.get('deadline') or '',
+            'progress': request.form.get('progress', 'Not Started'),
+            'priority': request.form.get('priority', 'Medium'),
+            'created_date': request.form.get('created_date') or date.today().isoformat(),
+            'completion_notes': request.form.get('completion_notes', '').strip(),
+            'created_by': session.get('username'),
+            'updated_at': datetime.now().isoformat(),
+        })
+        flash('Task created.', 'success')
+        return redirect(url_for('tasks'))
+    task_list = sorted_tasks(db.load('tasks'))
+    filtered_tasks = filter_tasks(task_list, status_filter, owner_filter, deadline_filter)
+    return render_template('tasks.html', tasks=task_list, statuses=TASK_STATUSES,
+                            priorities=TASK_PRIORITIES, today=date.today().isoformat(),
+                            filtered_tasks=filtered_tasks, status_filter=status_filter,
+                            owner_filter=owner_filter, deadline_filter=deadline_filter)
 
 
-@app.route('/notices/send', methods=['POST'])
+@app.route('/tasks/<int:task_id>/edit', methods=['POST'])
 @login_required
-@admin_required
-def send_notice():
-    selected_ids = request.form.getlist('flat_ids')
-    message = request.form.get('message', '').strip()
-    if not selected_ids:
-        flash('Please select at least one flat.', 'error')
-        return redirect(url_for('notices'))
-    if not message:
-        flash('Please enter the notice message.', 'error')
-        return redirect(url_for('notices'))
-    if not whatsapp_configured():
-        flash('WhatsApp sending is not configured yet. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and WHATSAPP_FROM_NUMBER.', 'error')
-        return redirect(url_for('notices'))
-
-    selected_id_set = {int(x) for x in selected_ids if x.isdigit()}
-    flats = [f for f in db.load('flats') if f['id'] in selected_id_set]
-    sent = []
-    failed = []
-    for flat in flats:
-        number = normalize_whatsapp_number(flat.get('contact'))
-        if not number:
-            failed.append({'flat_no': flat['flat_no'], 'reason': 'Missing or invalid contact number'})
-            continue
-        ok, detail = send_twilio_whatsapp_message(number, message)
-        if ok:
-            sent.append({'flat_no': flat['flat_no'], 'to': number, 'message_sid': detail})
-        else:
-            failed.append({'flat_no': flat['flat_no'], 'reason': detail})
-
-    db.insert('notice_log', {
-        'created_at': datetime.now().isoformat(),
-        'created_by': session.get('username'),
-        'message': message,
-        'provider': 'twilio_whatsapp',
-        'selected_flat_ids': sorted(selected_id_set),
-        'sent': sent,
-        'failed': failed,
+def edit_task(task_id):
+    db.update('tasks', task_id, {
+        'name': request.form['name'].strip(),
+        'description': request.form.get('description', '').strip(),
+        'owner': request.form.get('owner', '').strip(),
+        'deadline': request.form.get('deadline') or '',
+        'progress': request.form.get('progress', 'Not Started'),
+        'priority': request.form.get('priority', 'Medium'),
+        'created_date': request.form.get('created_date') or date.today().isoformat(),
+        'completion_notes': request.form.get('completion_notes', '').strip(),
+        'updated_at': datetime.now().isoformat(),
     })
+    flash('Task updated.', 'success')
+    return redirect(url_for('tasks'))
 
-    if sent and not failed:
-        flash(f'WhatsApp notice sent to {len(sent)} flat(s).', 'success')
-    elif sent and failed:
-        flash(f'Notice sent to {len(sent)} flat(s), but {len(failed)} failed.', 'error')
-    else:
-        flash('Notice could not be sent to any selected flat.', 'error')
-    return redirect(url_for('notices'))
+
+@app.route('/tasks/<int:task_id>/delete', methods=['POST'])
+@login_required
+def delete_task(task_id):
+    db.delete('tasks', task_id)
+    flash('Task removed.', 'success')
+    return redirect(url_for('tasks'))
 
 
 @app.route('/corpus-fund')
@@ -1200,10 +1196,13 @@ def reports():
                        'expense': r['total_expense'], 'net': r['net']})
     resident_flat = current_user_flat()
     resident_summary = resident_due_summary(resident_flat['id'], ym) if resident_flat else None
+    tasks_report = sorted_tasks(db.load('tasks'))
+    task_summary = summarize_tasks(tasks_report)
     return render_template('reports.html', report=report, trend=trend, ym=ym,
                             current_balance=overall_balance(),
                             events=sorted(db.load('events'), key=lambda e: e.get('event_date', ''), reverse=True),
-                            resident_flat=resident_flat, resident_summary=resident_summary)
+                            resident_flat=resident_flat, resident_summary=resident_summary,
+                            tasks_report=tasks_report, task_summary=task_summary)
 
 
 @app.route('/reports/export/<ym>')
@@ -1267,6 +1266,53 @@ def export_report_pdf(ym):
     pdf_data = build_profit_loss_pdf(report)
     return Response(pdf_data, mimetype='application/pdf',
                      headers={'Content-Disposition': f'attachment; filename=report_{ym}.pdf'})
+
+
+@app.route('/reports/tasks/export/csv')
+@login_required
+def export_tasks_report_csv():
+    tasks_report = sorted_tasks(db.load('tasks'))
+    lines = ["Task Progress Report", ""]
+    lines.append("Task Name,Owner,Priority,Progress,Date Created,Deadline,Completion Notes")
+    for task in tasks_report:
+        name = (task.get('name') or '').replace(',', ';')
+        owner = (task.get('owner') or '').replace(',', ';')
+        priority = (task.get('priority') or '').replace(',', ';')
+        progress = (task.get('progress') or '').replace(',', ';')
+        created_date = task.get('created_date') or ''
+        deadline = task.get('deadline') or ''
+        notes = (task.get('completion_notes') or '').replace(',', ';')
+        lines.append(f"{name},{owner},{priority},{progress},{created_date},{deadline},{notes}")
+    csv_data = "\n".join(lines)
+    return Response(csv_data, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename=task_progress_report.csv'})
+
+
+@app.route('/reports/tasks/export/pdf')
+@login_required
+def export_tasks_report_pdf():
+    tasks_report = sorted_tasks(db.load('tasks'))
+    lines = [
+        "Task Progress Report",
+        "",
+        f"Total Tasks: {len(tasks_report)}",
+        f"Completed: {sum(1 for t in tasks_report if t.get('progress') == 'Completed')}",
+        f"In Progress: {sum(1 for t in tasks_report if t.get('progress') in ('In Progress', 'At Completion'))}",
+        f"Overdue: {sum(1 for t in tasks_report if t.get('is_overdue'))}",
+        "",
+    ]
+    for task in tasks_report:
+        lines.append(f"Task: {task.get('name', '')}")
+        lines.append(f"Owner: {task.get('owner') or 'No owner assigned'} | Priority: {task.get('priority', '')} | Progress: {task.get('progress', '')}")
+        lines.append(f"Created: {task.get('created_date', '')} | Deadline: {task.get('deadline') or '-'}")
+        if task.get('description'):
+            lines.append(f"Description: {task.get('description')}")
+        if task.get('completion_notes'):
+            lines.append(f"Notes: {task.get('completion_notes')}")
+        lines.append("")
+    pdf_data = build_text_pdf("Task Progress Report", lines)
+    return Response(pdf_data, mimetype='application/pdf',
+                     headers={'Content-Disposition': 'attachment; filename=task_progress_report.pdf'})
 
 
 # ---------------------------------------------------------------------------
@@ -1521,7 +1567,7 @@ def manifest():
         "start_url": "/",
         "display": "standalone",
         "background_color": "#0f172a",
-        "theme_color": "#4f46e5",
+        "theme_color": "#16a34a",
         "icons": [
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"}

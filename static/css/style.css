@@ -168,6 +168,7 @@ html, body {
 .list-row .amt { font-weight: 700; font-size: 15px; }
 .amt.pos { color: var(--green); }
 .amt.neg { color: var(--red); }
+.task-done { text-decoration: line-through; opacity: 0.72; }
 
 .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
 .badge.paid { background: var(--green-light); color: var(--green); }
@@ -207,17 +208,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 textarea { resize: vertical; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; }
 .checkbox-row input { width: auto; }
-.notice-flat-list { display: grid; gap: 10px; }
-.notice-flat-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #fff;
-}
-.notice-flat-item input { width: auto; margin-top: 3px; }
 
 /* ---- Month picker ---- */
 .month-picker { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }

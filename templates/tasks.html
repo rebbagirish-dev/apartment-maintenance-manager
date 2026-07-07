@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block title %}Tasks{% endblock %}
+{% block header_title %}Master Data{% endblock %}
+{% block content %}
+
+{% include '_master_menu.html' %}
+
+<div class="card collapsible-card" id="taskCreateCard">
+  <div class="card-header">
+    <div class="card-title">Create Task</div>
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+  </div>
+  <form method="POST" data-collapsible-body hidden>
+    <div class="form-group"><label>Task Name</label><input name="name" required placeholder="e.g. Lift repair follow-up"></div>
+    <div class="form-group"><label>Description</label><textarea name="description" rows="4" placeholder="What needs to be done?"></textarea></div>
+    <div class="two-col">
+      <div class="form-group"><label>Owner</label><input name="owner" placeholder="Person responsible"></div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select name="priority">
+          {% for p in priorities %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="form-group"><label>Date Created</label><input type="date" name="created_date" value="{{ today }}" required></div>
+      <div class="form-group"><label>Deadline</label><input type="date" name="deadline"></div>
+    </div>
+    <div class="form-group">
+      <label>Progress</label>
+      <select name="progress">
+        {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group"><label>Completion / Follow-up Notes</label><textarea name="completion_notes" rows="3" placeholder="Optional notes, blockers, or completion remarks"></textarea></div>
+    <button class="btn block" type="submit">+ Create Task</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title">Task Filters</div>
+  <form method="GET">
+    <div class="two-col">
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status">
+          <option value="">All Statuses</option>
+          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if status_filter == s }}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Deadline</label>
+        <select name="deadline_filter">
+          <option value="">All Deadlines</option>
+          <option value="overdue" {{ 'selected' if deadline_filter == 'overdue' }}>Overdue</option>
+          <option value="upcoming" {{ 'selected' if deadline_filter == 'upcoming' }}>Upcoming</option>
+          <option value="no_deadline" {{ 'selected' if deadline_filter == 'no_deadline' }}>No Deadline</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>Owner Contains</label><input name="owner" value="{{ owner_filter }}" placeholder="Search owner name"></div>
+    <div class="two-col">
+      <button class="btn secondary block" type="submit">Apply Filters</button>
+      <a href="{{ url_for('tasks') }}" class="btn secondary block">Clear Filters</a>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title">All Tasks ({{ tasks|length }})</div>
+  {% for t in filtered_tasks %}
+  <div class="card" style="margin-bottom:10px; box-shadow:none; border:1px solid var(--border);">
+    <div class="list-row" style="padding-top:0;">
+      <div>
+        <div class="main {{ 'task-done' if t.is_completed }}">{{ t.name }}</div>
+        <div class="sub">{{ t.owner or 'No owner assigned' }}{% if t.deadline %} · Deadline {{ t.deadline }}{% endif %}{% if t.is_overdue %} · Overdue{% endif %}</div>
+        {% if t.description %}<div class="sub">{{ t.description }}</div>{% endif %}
+        {% if t.completion_notes %}<div class="sub">Notes: {{ t.completion_notes }}</div>{% endif %}
+      </div>
+      <div style="text-align:right;">
+        <span class="badge {{ t.status_badge }}">{{ t.progress }}</span><br>
+        <span class="badge onetime" style="margin-top:6px; display:inline-block;">{{ t.priority }}</span>
+      </div>
+    </div>
+    <details id="task-edit-{{ t.id }}">
+      <summary class="small-link">Edit task</summary>
+      <form method="POST" action="{{ url_for('edit_task', task_id=t.id) }}" style="margin-top:10px;">
+        <div class="form-group"><label>Task Name</label><input name="name" value="{{ t.name }}" required></div>
+        <div class="form-group"><label>Description</label><textarea name="description" rows="4">{{ t.description }}</textarea></div>
+        <div class="two-col">
+          <div class="form-group"><label>Owner</label><input name="owner" value="{{ t.owner }}"></div>
+          <div class="form-group">
+            <label>Priority</label>
+            <select name="priority">
+              {% for p in priorities %}<option value="{{ p }}" {{ 'selected' if t.priority == p }}>{{ p }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="two-col">
+          <div class="form-group"><label>Date Created</label><input type="date" name="created_date" value="{{ t.created_date }}" required></div>
+          <div class="form-group"><label>Deadline</label><input type="date" name="deadline" value="{{ t.deadline }}"></div>
+        </div>
+        <div class="form-group">
+          <label>Progress</label>
+          <select name="progress">
+            {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if t.progress == s }}>{{ s }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group"><label>Completion / Follow-up Notes</label><textarea name="completion_notes" rows="3">{{ t.completion_notes }}</textarea></div>
+        <div class="two-col">
+          <button class="btn sm block" type="submit">Save Changes</button>
+          <button class="btn sm danger block" type="submit" formaction="{{ url_for('delete_task', task_id=t.id) }}"
+            onclick="return confirm('Delete this task?');">Delete</button>
+        </div>
+      </form>
+    </details>
+  </div>
+  {% else %}
+  <div class="empty-state">No tasks match the current filters.</div>
+  {% endfor %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  initMenu('masterMenu');
+  initCollapsibleCard('taskCreateCard');
+});
+</script>
+{% endblock %}

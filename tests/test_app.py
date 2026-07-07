@@ -2,7 +2,6 @@ import unittest
 import uuid
 from pathlib import Path
 import shutil
-import os
 
 from werkzeug.security import generate_password_hash
 
@@ -189,35 +188,119 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertEqual(updated['role'], 'tenant')
         self.assertEqual(updated['flat_id'], self.flat_two_id)
 
-    def test_admin_notice_page_loads(self):
+    def test_admin_can_create_task(self):
         self.login('admin', 'admin123')
-        response = self.client.get('/notices')
+        response = self.client.post('/tasks', data={
+            'name': 'Lift inspection',
+            'description': 'Coordinate vendor visit',
+            'owner': 'Manager One',
+            'deadline': '2026-07-20',
+            'progress': 'In Progress',
+            'priority': 'High',
+            'created_date': '2026-07-07',
+            'completion_notes': '',
+        }, follow_redirects=True)
+        text = response.get_data(as_text=True)
+        tasks = db.load('tasks')
+
+        self.assertIn('Task created.', text)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]['name'], 'Lift inspection')
+
+    def test_reports_page_shows_task_progress_report(self):
+        db.insert('tasks', {
+            'name': 'Water tank cleaning',
+            'description': 'Schedule monthly cleaning',
+            'owner': 'Committee',
+            'deadline': '2026-07-12',
+            'progress': 'Completed',
+            'priority': 'Medium',
+            'created_date': '2026-07-01',
+            'completion_notes': 'Completed successfully',
+            'created_by': 'admin',
+            'updated_at': '2026-07-07T10:00:00',
+        })
+        self.login('tenant1', 'secret123')
+        response = self.client.get('/reports?month=2026-07')
+        text = response.get_data(as_text=True)
+
+        self.assertIn('Task Progress Report', text)
+        self.assertIn('Water tank cleaning', text)
+        self.assertIn('Completed', text)
+
+    def test_tasks_page_filters_by_status(self):
+        db.insert('tasks', {
+            'name': 'Lift repair',
+            'description': '',
+            'owner': 'Manager',
+            'deadline': '2026-07-12',
+            'progress': 'In Progress',
+            'priority': 'High',
+            'created_date': '2026-07-01',
+            'completion_notes': '',
+            'created_by': 'admin',
+            'updated_at': '2026-07-07T10:00:00',
+        })
+        db.insert('tasks', {
+            'name': 'Paint touch-up',
+            'description': '',
+            'owner': 'Vendor',
+            'deadline': '',
+            'progress': 'Completed',
+            'priority': 'Low',
+            'created_date': '2026-07-02',
+            'completion_notes': '',
+            'created_by': 'admin',
+            'updated_at': '2026-07-07T10:00:00',
+        })
+        self.login('admin', 'admin123')
+        response = self.client.get('/tasks?status=In+Progress')
+        text = response.get_data(as_text=True)
+
+        self.assertIn('Lift repair', text)
+        self.assertNotIn('Paint touch-up', text)
+
+    def test_task_report_csv_export(self):
+        db.insert('tasks', {
+            'name': 'Generator service',
+            'description': 'Monthly schedule',
+            'owner': 'Technician',
+            'deadline': '2026-07-15',
+            'progress': 'Not Started',
+            'priority': 'Medium',
+            'created_date': '2026-07-03',
+            'completion_notes': '',
+            'created_by': 'admin',
+            'updated_at': '2026-07-07T10:00:00',
+        })
+        self.login('tenant1', 'secret123')
+        response = self.client.get('/reports/tasks/export/csv')
         text = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('WhatsApp Notices', text)
-        self.assertIn('Select specific flats', text)
+        self.assertEqual(response.mimetype, 'text/csv')
+        self.assertIn('Task Progress Report', text)
+        self.assertIn('Generator service', text)
 
-    def test_notice_send_requires_configuration(self):
+    def test_dashboard_shows_task_summary(self):
+        db.insert('tasks', {
+            'name': 'Intercom follow-up',
+            'description': '',
+            'owner': 'Committee',
+            'deadline': '2026-07-14',
+            'progress': 'At Completion',
+            'priority': 'Medium',
+            'created_date': '2026-07-04',
+            'completion_notes': '',
+            'created_by': 'admin',
+            'updated_at': '2026-07-07T10:00:00',
+        })
         self.login('admin', 'admin123')
-        old_sid = os.environ.pop('TWILIO_ACCOUNT_SID', None)
-        old_token = os.environ.pop('TWILIO_AUTH_TOKEN', None)
-        old_from = os.environ.pop('WHATSAPP_FROM_NUMBER', None)
-        try:
-            response = self.client.post('/notices/send', data={
-                'flat_ids': str(self.flat_one_id),
-                'message': 'Test notice',
-            }, follow_redirects=True)
-        finally:
-            if old_sid is not None:
-                os.environ['TWILIO_ACCOUNT_SID'] = old_sid
-            if old_token is not None:
-                os.environ['TWILIO_AUTH_TOKEN'] = old_token
-            if old_from is not None:
-                os.environ['WHATSAPP_FROM_NUMBER'] = old_from
+        response = self.client.get('/')
         text = response.get_data(as_text=True)
 
-        self.assertIn('WhatsApp sending is not configured yet.', text)
+        self.assertIn('Task Summary', text)
+        self.assertIn('Intercom follow-up', text)
 
     def test_monthly_report_pdf_download(self):
         self.login('admin', 'admin123')

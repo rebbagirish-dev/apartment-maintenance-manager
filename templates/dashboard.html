@@ -15,11 +15,11 @@
 <div class="stat-grid">
   <div class="stat-box">
     <div class="num" style="color:var(--green)">₹{{ '%.0f'|format(report.total_income) }}</div>
-    <div class="lbl">Income – {{ report.label }}</div>
+    <div class="lbl">Income - {{ report.label }}</div>
   </div>
   <div class="stat-box">
     <div class="num" style="color:var(--red)">₹{{ '%.0f'|format(report.total_expense) }}</div>
-    <div class="lbl">Expenses – {{ report.label }}</div>
+    <div class="lbl">Expenses - {{ report.label }}</div>
   </div>
   <div class="stat-box">
     <div class="num">{{ flat_count }}</div>
@@ -67,12 +67,6 @@
     <a href="{{ url_for('flats') }}" class="btn secondary sm block">Manage Flats</a>
     <a href="{{ url_for('watchman') }}" class="btn secondary sm block">Watchman Ledger</a>
   </div>
-  {% if session.role == 'admin' %}
-  <div class="two-col" style="margin-top:8px;">
-    <a href="{{ url_for('notices') }}" class="btn secondary sm block">Send WhatsApp Notice</a>
-    <span></span>
-  </div>
-  {% endif %}
 </div>
 {% endif %}
 
@@ -91,6 +85,29 @@
   {% else %}
     <div class="empty-state"><div class="icon">&#128203;</div>No expenses recorded yet.</div>
   {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-title">Task Summary</div>
+  <div class="stat-grid" style="margin-bottom:14px;">
+    <div class="stat-box"><div class="num">{{ task_summary.total }}</div><div class="lbl">Total Tasks</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--green)">{{ task_summary.completed }}</div><div class="lbl">Completed</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--primary)">{{ task_summary.in_progress }}</div><div class="lbl">In Progress</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--amber)">{{ task_summary.overdue }}</div><div class="lbl">Overdue</div></div>
+  </div>
+  {% for t in upcoming_tasks %}
+  <div class="list-row">
+    <div>
+      <div class="main {{ 'task-done' if t.is_completed else '' }}">{{ t.name }}</div>
+      <div class="sub">{{ t.owner or 'No owner assigned' }}{% if t.deadline %} · Deadline {{ t.deadline }}{% endif %}</div>
+    </div>
+    <div style="text-align:right;">
+      <span class="badge {{ t.status_badge }}">{{ t.progress }}</span>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="icon">&#128221;</div>No open tasks right now.</div>
+  {% endfor %}
 </div>
 
 {% if session.role in ['admin', 'manager'] %}

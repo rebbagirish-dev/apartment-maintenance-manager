@@ -148,4 +148,34 @@
   <div class="empty-state">No events yet.</div>
   {% endfor %}
 </div>
+
+<div class="card">
+  <div class="card-title">Task Progress Report</div>
+  <div class="stat-grid" style="margin-bottom:14px;">
+    <div class="stat-box"><div class="num">{{ task_summary.total }}</div><div class="lbl">Total Tasks</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--green)">{{ task_summary.completed }}</div><div class="lbl">Completed</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--primary)">{{ task_summary.in_progress }}</div><div class="lbl">In Progress</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--amber)">{{ task_summary.overdue }}</div><div class="lbl">Overdue</div></div>
+  </div>
+  <div class="two-col" style="margin-bottom:12px;">
+    <a href="{{ url_for('export_tasks_report_csv') }}" class="btn secondary block">Download Task CSV</a>
+    <a href="{{ url_for('export_tasks_report_pdf') }}" class="btn secondary block">Download Task PDF</a>
+  </div>
+  {% for t in tasks_report %}
+  <div class="list-row">
+    <div>
+      <div class="main {{ 'task-done' if t.is_completed }}">{{ t.name }}</div>
+      <div class="sub">{{ t.owner or 'No owner assigned' }}{% if t.deadline %} · Deadline {{ t.deadline }}{% endif %}</div>
+      {% if t.description %}<div class="sub">{{ t.description }}</div>{% endif %}
+      {% if t.completion_notes %}<div class="sub">Notes: {{ t.completion_notes }}</div>{% endif %}
+    </div>
+    <div style="text-align:right;">
+      <span class="badge {{ t.status_badge }}">{{ t.progress }}</span><br>
+      <span class="badge onetime" style="margin-top:6px; display:inline-block;">{{ t.priority }}</span>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">No tasks recorded yet.</div>
+  {% endfor %}
+</div>
 {% endblock %}

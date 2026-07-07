@@ -10,6 +10,7 @@
     {% if session.role == 'admin' %}
     <a href="{{ url_for('users') }}" class="{{ 'active' if request.endpoint in ['users', 'edit_user'] }}">Users</a>
     {% endif %}
+    <a href="{{ url_for('tasks') }}" class="{{ 'active' if request.endpoint in ['tasks', 'edit_task'] }}">Tasks</a>
     <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' }}">Opening Balance</a>
   </div>
 </div>
