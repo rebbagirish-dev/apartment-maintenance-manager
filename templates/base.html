@@ -46,6 +46,11 @@
       <a href="{{ url_for('expenses') }}" class="{{ 'active' if request.endpoint in ['expenses'] }}">
         <span class="icon">&#128200;</span>Expenses
       </a>
+      {% if session.role in ['admin', 'manager'] %}
+      <a href="{{ url_for('tasks') }}" class="{{ 'active' if request.endpoint in ['tasks', 'edit_task'] }}">
+        <span class="icon">&#128221;</span>Tasks
+      </a>
+      {% endif %}
       <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' }}">
         <span class="icon">&#128202;</span>Reports
       </a>
