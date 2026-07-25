@@ -275,6 +275,45 @@ textarea { resize: vertical; }
   background: var(--primary-light);
   color: var(--primary);
 }
+.folder-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.folder-card {
+  display: block;
+  text-decoration: none;
+  color: var(--text);
+  background: linear-gradient(180deg, #fff7d6, #f8e9a4);
+  border: 1px solid #e8d27b;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.folder-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+.folder-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+.folder-meta {
+  font-size: 12px;
+  color: #6b5d22;
+  margin-top: 4px;
+}
+.folder-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.folder-section-title {
+  font-size: 16px;
+  font-weight: 700;
+}
 
 /* ---- Flash messages ---- */
 .flash { padding: 12px 14px; border-radius: 12px; margin-bottom: 12px; font-size: 14px; font-weight: 500; }
@@ -350,7 +389,8 @@ table.report-table td:last-child { text-align: right; font-weight: 600; }
 .login-card .flash { margin-bottom: 14px; }
 @media (max-width: 480px) {
   .pnl-summary,
-  .pnl-grid {
+  .pnl-grid,
+  .folder-grid {
     grid-template-columns: 1fr;
   }
 }

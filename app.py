@@ -1,10 +1,12 @@
 import os
+import uuid
 from datetime import datetime, date, timedelta
 from functools import wraps
 import textwrap
 
 from flask import (Flask, render_template, request, redirect, url_for,
-                    session, flash, jsonify, Response)
+                    session, flash, jsonify, Response, send_from_directory)
+from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import db
@@ -61,11 +63,27 @@ def admin_required(view):
 TENANT_ALLOWED_ENDPOINTS = {
     'reports', 'export_report', 'export_report_pdf', 'event_report', 'export_event_report',
     'export_event_report_pdf', 'export_tasks_report_csv', 'export_tasks_report_pdf',
+    'documents', 'document_file',
     'logout', 'static', 'manifest', 'service_worker',
 }
 OWNER_BLOCKED_ENDPOINTS = {
     'users', 'edit_user', 'delete_user', 'income_types', 'delete_income_type',
     'expense_types', 'delete_expense_type', 'settings_page', 'tasks', 'edit_task', 'delete_task',
+}
+
+DOCUMENT_CATEGORIES = [
+    'Lift Servicing Receipts',
+    'Generator Servicing Receipts',
+    'AMC Invoices',
+    'Utility Bills',
+    'Repair Invoices',
+    'Compliance Documents',
+    'Insurance Documents',
+    'Other Documents',
+]
+ALLOWED_DOCUMENT_EXTENSIONS = {
+    'pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif',
+    'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt',
 }
 
 @app.before_request
@@ -216,6 +234,46 @@ def summarize_tasks(tasks):
         'not_started': sum(1 for t in tasks if t.get('progress') == 'Not Started'),
         'overdue': sum(1 for t in tasks if t.get('is_overdue')),
     }
+
+
+def documents_dir():
+    path = os.path.join(db.DATA_DIR, 'documents_store')
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def allowed_document(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_DOCUMENT_EXTENSIONS
+
+
+def normalize_document_category(category, custom_category=''):
+    selected = (category or '').strip()
+    custom = (custom_category or '').strip()
+    if selected == 'Other' and custom:
+        return custom
+    if selected:
+        return selected
+    return 'Uncategorized'
+
+
+def decorate_documents(records):
+    items = []
+    for doc in sorted(records, key=lambda x: x.get('uploaded_at') or '', reverse=True):
+        item = dict(doc)
+        item['file_ext'] = (item.get('original_filename', '').rsplit('.', 1)[-1].upper()
+                            if '.' in item.get('original_filename', '') else 'FILE')
+        item['uploaded_label'] = item.get('uploaded_at', '').replace('T', ' ')[:16]
+        item['size_label'] = f"{round((item.get('size_bytes') or 0) / 1024, 1)} KB"
+        items.append(item)
+    return items
+
+
+def grouped_documents(records):
+    groups = {}
+    for doc in decorate_documents(records):
+        category = doc.get('category') or 'Uncategorized'
+        groups.setdefault(category, []).append(doc)
+    return [{'name': name, 'documents': docs} for name, docs in sorted(groups.items(), key=lambda x: x[0].lower())]
 
 
 def pdf_safe_text(value):
@@ -784,6 +842,84 @@ def delete_task(task_id):
     db.delete('tasks', task_id)
     flash('Task removed.', 'success')
     return redirect(url_for('tasks'))
+
+
+@app.route('/documents', methods=['GET', 'POST'])
+@login_required
+def documents():
+    if request.method == 'POST':
+        if session.get('role') != 'admin':
+            flash('Only admins can upload documents.', 'error')
+            return redirect(url_for('documents'))
+        upload = request.files.get('document')
+        if not upload or not upload.filename:
+            flash('Please choose a document to upload.', 'error')
+            return redirect(url_for('documents'))
+        if not allowed_document(upload.filename):
+            flash('That file type is not supported.', 'error')
+            return redirect(url_for('documents'))
+
+        original_filename = secure_filename(upload.filename)
+        extension = original_filename.rsplit('.', 1)[1].lower()
+        stored_filename = f"{uuid.uuid4().hex}.{extension}"
+        save_path = os.path.join(documents_dir(), stored_filename)
+        upload.save(save_path)
+
+        db.insert('documents', {
+            'category': normalize_document_category(
+                request.form.get('category'),
+                request.form.get('custom_category'),
+            ),
+            'title': request.form.get('title', '').strip() or os.path.splitext(original_filename)[0],
+            'description': request.form.get('description', '').strip(),
+            'original_filename': original_filename,
+            'stored_filename': stored_filename,
+            'content_type': upload.mimetype or 'application/octet-stream',
+            'size_bytes': os.path.getsize(save_path),
+            'uploaded_by': session.get('username'),
+            'uploaded_at': datetime.now().isoformat(timespec='seconds'),
+        })
+        flash('Document uploaded.', 'success')
+        return redirect(url_for('documents'))
+
+    library = grouped_documents(db.load('documents'))
+    return render_template(
+        'documents.html',
+        document_categories=DOCUMENT_CATEGORIES,
+        document_groups=library,
+        total_documents=sum(len(group['documents']) for group in library),
+    )
+
+
+@app.route('/documents/<int:document_id>/file')
+@login_required
+def document_file(document_id):
+    document = db.get('documents', document_id)
+    if not document:
+        flash('Document not found.', 'error')
+        return redirect(url_for('documents'))
+    return send_from_directory(
+        documents_dir(),
+        document['stored_filename'],
+        as_attachment=False,
+        download_name=document.get('original_filename') or document['stored_filename'],
+    )
+
+
+@app.route('/documents/<int:document_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_document(document_id):
+    document = db.get('documents', document_id)
+    if not document:
+        flash('Document not found.', 'error')
+        return redirect(url_for('documents'))
+    file_path = os.path.join(documents_dir(), document.get('stored_filename', ''))
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    db.delete('documents', document_id)
+    flash('Document deleted.', 'success')
+    return redirect(url_for('documents'))
 
 
 @app.route('/corpus-fund')

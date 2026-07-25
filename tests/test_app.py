@@ -1,5 +1,6 @@
 import unittest
 import uuid
+from io import BytesIO
 from pathlib import Path
 import shutil
 
@@ -301,6 +302,74 @@ class ResidentAccessTests(unittest.TestCase):
 
         self.assertIn('Task Summary', text)
         self.assertIn('Intercom follow-up', text)
+
+    def test_admin_can_upload_document(self):
+        self.login('admin', 'admin123')
+        response = self.client.post('/documents', data={
+            'category': 'Lift Servicing Receipts',
+            'custom_category': '',
+            'title': 'July Lift AMC',
+            'description': 'Vendor receipt for July service',
+            'document': (BytesIO(b'fake pdf data'), 'lift_receipt.pdf'),
+        }, content_type='multipart/form-data', follow_redirects=True)
+        text = response.get_data(as_text=True)
+        documents = db.load('documents')
+
+        self.assertIn('Document uploaded.', text)
+        self.assertEqual(len(documents), 1)
+        self.assertEqual(documents[0]['category'], 'Lift Servicing Receipts')
+        self.assertEqual(documents[0]['title'], 'July Lift AMC')
+        stored_path = self.temp_dir / 'documents_store' / documents[0]['stored_filename']
+        self.assertTrue(stored_path.exists())
+
+    def test_tenant_can_view_document_library(self):
+        db.insert('documents', {
+            'category': 'Generator Servicing Receipts',
+            'title': 'Generator AMC Invoice',
+            'description': 'Quarterly inspection invoice',
+            'original_filename': 'generator_invoice.pdf',
+            'stored_filename': 'generator_invoice.pdf',
+            'content_type': 'application/pdf',
+            'size_bytes': 1024,
+            'uploaded_by': 'admin',
+            'uploaded_at': '2026-07-20T10:30:00',
+        })
+        documents_dir = self.temp_dir / 'documents_store'
+        documents_dir.mkdir(exist_ok=True)
+        (documents_dir / 'generator_invoice.pdf').write_bytes(b'pdf data')
+
+        self.login('tenant1', 'secret123')
+        response = self.client.get('/documents')
+        text = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Document Library', text)
+        self.assertIn('Generator Servicing Receipts', text)
+        self.assertIn('Generator AMC Invoice', text)
+
+    def test_only_admin_can_delete_document(self):
+        document = db.insert('documents', {
+            'category': 'AMC Invoices',
+            'title': 'Fire Safety AMC',
+            'description': '',
+            'original_filename': 'fire_amc.pdf',
+            'stored_filename': 'fire_amc.pdf',
+            'content_type': 'application/pdf',
+            'size_bytes': 2048,
+            'uploaded_by': 'admin',
+            'uploaded_at': '2026-07-21T09:00:00',
+        })
+        documents_dir = self.temp_dir / 'documents_store'
+        documents_dir.mkdir(exist_ok=True)
+        (documents_dir / 'fire_amc.pdf').write_bytes(b'pdf data')
+
+        self.login('manager1', 'secret123')
+        response = self.client.post(f'/documents/{document["id"]}/delete', follow_redirects=True)
+        text = response.get_data(as_text=True)
+
+        self.assertIn('Only admins can access that.', text)
+        self.assertIsNotNone(db.get('documents', document['id']))
+        self.assertTrue((documents_dir / 'fire_amc.pdf').exists())
 
     def test_monthly_report_pdf_download(self):
         self.login('admin', 'admin123')

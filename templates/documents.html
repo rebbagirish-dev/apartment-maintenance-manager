@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Documents{% endblock %}
+{% block header_title %}Document Library{% endblock %}
+{% block content %}
+
+{% if session.role in ['admin', 'manager'] %}
+{% include '_master_menu.html' %}
+{% endif %}
+
+<div class="card">
+  <div class="card-title">Document Categories</div>
+  <div class="folder-grid">
+    {% for group in document_groups %}
+    <a href="#folder-{{ loop.index }}" class="folder-card">
+      <div class="folder-icon">&#128193;</div>
+      <div class="folder-name">{{ group.name }}</div>
+      <div class="folder-meta">{{ group.documents|length }} file{{ '' if group.documents|length == 1 else 's' }}</div>
+    </a>
+    {% else %}
+    <div class="empty-state" style="grid-column:1 / -1; padding:24px 16px;">
+      <div class="icon">&#128194;</div>
+      No documents uploaded yet.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if session.role == 'admin' %}
+<div class="card collapsible-card" id="documentUploadCard">
+  <div class="card-header">
+    <div class="card-title">Upload Document</div>
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+  </div>
+  <form method="POST" enctype="multipart/form-data" data-collapsible-body hidden>
+    <div class="two-col">
+      <div class="form-group">
+        <label>Category</label>
+        <select name="category" id="documentCategory" onchange="toggleCustomCategory(this.value)">
+          {% for category in document_categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group" id="customCategoryWrap" style="display:none;">
+        <label>Custom Category</label>
+        <input name="custom_category" placeholder="e.g. Fire Safety AMC">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Document Title</label>
+      <input name="title" placeholder="e.g. July lift servicing receipt">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea name="description" rows="3" placeholder="Optional notes for residents"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Choose File</label>
+      <input type="file" name="document" required>
+      <div class="sub" style="margin-top:6px;">Accepted: PDF, images, Word, Excel, CSV and text files.</div>
+    </div>
+    <button class="btn block" type="submit">+ Upload Document</button>
+  </form>
+</div>
+{% endif %}
+
+{% for group in document_groups %}
+<div class="card" id="folder-{{ loop.index }}">
+  <div class="folder-section-header">
+    <div>
+      <div class="folder-section-title">&#128193; {{ group.name }}</div>
+      <div class="sub">{{ group.documents|length }} file{{ '' if group.documents|length == 1 else 's' }}</div>
+    </div>
+  </div>
+  {% for doc in group.documents %}
+  <div class="list-row">
+    <div>
+      <div class="main">{{ doc.title }}</div>
+      <div class="sub">{{ doc.original_filename }} · {{ doc.size_label }}{% if doc.uploaded_label %} · {{ doc.uploaded_label }}{% endif %}</div>
+      {% if doc.description %}<div class="sub">{{ doc.description }}</div>{% endif %}
+      <div class="sub">Uploaded by {{ doc.uploaded_by or 'Administrator' }}</div>
+    </div>
+    <div style="text-align:right; min-width:118px;">
+      <a href="{{ url_for('document_file', document_id=doc.id) }}" class="btn secondary sm" target="_blank">View</a>
+      {% if session.role == 'admin' %}
+      <form method="POST" action="{{ url_for('delete_document', document_id=doc.id) }}" style="margin-top:8px;">
+        <button class="btn danger sm" type="submit" onclick="return confirm('Delete this document?');">Delete</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<script>
+function toggleCustomCategory(value) {
+  var wrap = document.getElementById('customCategoryWrap');
+  if (!wrap) return;
+  wrap.style.display = value === 'Other' ? 'block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  initMenu('masterMenu');
+  initCollapsibleCard('documentUploadCard');
+  toggleCustomCategory(document.getElementById('documentCategory') ? document.getElementById('documentCategory').value : '');
+});
+</script>
+{% endblock %}
