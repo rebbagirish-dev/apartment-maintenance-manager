@@ -4,11 +4,17 @@ from io import BytesIO
 from pathlib import Path
 import shutil
 
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 import db
 import app as app_module
-from seed import seed
+from seed import (
+    seed,
+    ensure_admin_user,
+    DEFAULT_ADMIN_USERNAME,
+    DEFAULT_ADMIN_PASSWORD,
+    DEFAULT_ADMIN_NAME,
+)
 
 
 class ResidentAccessTests(unittest.TestCase):
@@ -129,7 +135,7 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertNotIn('Flat B-202', text)
 
     def test_admin_income_page_still_shows_all_flats(self):
-        self.login('admin', 'admin123')
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.get('/income?month=2026-07')
         text = response.get_data(as_text=True)
 
@@ -161,7 +167,7 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertNotIn('Your session has expired. Please log in again.', text)
 
     def test_reports_page_lists_flats_yet_to_pay_maintenance(self):
-        self.login('admin', 'admin123')
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.get('/reports?month=2026-07')
         text = response.get_data(as_text=True)
 
@@ -172,7 +178,7 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertNotIn('Flat B-202</div>', text)
 
     def test_admin_can_edit_user(self):
-        self.login('admin', 'admin123')
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.post(f'/users/{self.manager_user["id"]}/edit', data={
             'name': 'Manager Updated',
             'username': 'manager_renamed',
@@ -190,7 +196,7 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertEqual(updated['flat_id'], self.flat_two_id)
 
     def test_admin_can_create_task(self):
-        self.login('admin', 'admin123')
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.post('/tasks', data={
             'name': 'Lift inspection',
             'description': 'Coordinate vendor visit',
@@ -254,7 +260,7 @@ class ResidentAccessTests(unittest.TestCase):
             'created_by': 'admin',
             'updated_at': '2026-07-07T10:00:00',
         })
-        self.login('admin', 'admin123')
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.get('/tasks?status=In+Progress')
         text = response.get_data(as_text=True)
 
@@ -296,7 +302,7 @@ class ResidentAccessTests(unittest.TestCase):
             'created_by': 'admin',
             'updated_at': '2026-07-07T10:00:00',
         })
-        self.login('admin', 'admin123')
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.get('/')
         text = response.get_data(as_text=True)
 
@@ -304,7 +310,7 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Intercom follow-up', text)
 
     def test_admin_can_upload_document(self):
-        self.login('admin', 'admin123')
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.post('/documents', data={
             'category': 'Lift Servicing Receipts',
             'custom_category': '',
@@ -347,6 +353,33 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Generator Servicing Receipts', text)
         self.assertIn('Generator AMC Invoice', text)
 
+    def test_seed_recreates_admin_when_missing(self):
+        db.save('users', [])
+        seed()
+        users = db.load('users')
+
+        self.assertEqual(len(users), 1)
+        self.assertEqual(users[0]['username'], DEFAULT_ADMIN_USERNAME)
+        self.assertEqual(users[0]['role'], 'admin')
+        self.assertEqual(users[0]['name'], DEFAULT_ADMIN_NAME)
+        self.assertTrue(check_password_hash(users[0]['password_hash'], DEFAULT_ADMIN_PASSWORD))
+
+    def test_seed_syncs_hardcoded_admin_credentials(self):
+        db.save('users', [{
+            'id': 1,
+            'username': DEFAULT_ADMIN_USERNAME,
+            'password_hash': generate_password_hash('wrong-password'),
+            'name': 'Wrong Name',
+            'role': 'manager',
+        }])
+        ensure_admin_user()
+        user = next((u for u in db.load('users') if u['username'] == DEFAULT_ADMIN_USERNAME), None)
+
+        self.assertIsNotNone(user)
+        self.assertEqual(user['role'], 'admin')
+        self.assertEqual(user['name'], DEFAULT_ADMIN_NAME)
+        self.assertTrue(check_password_hash(user['password_hash'], DEFAULT_ADMIN_PASSWORD))
+
     def test_only_admin_can_delete_document(self):
         document = db.insert('documents', {
             'category': 'AMC Invoices',
@@ -372,7 +405,7 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertTrue((documents_dir / 'fire_amc.pdf').exists())
 
     def test_monthly_report_pdf_download(self):
-        self.login('admin', 'admin123')
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.get('/reports/export/2026-07/pdf')
 
         self.assertEqual(response.status_code, 200)
@@ -383,7 +416,7 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn(b'Income and Expenditure Statement', response.data)
 
     def test_event_report_pdf_download(self):
-        self.login('admin', 'admin123')
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.get(f'/events/{self.event["id"]}/report/export/pdf')
 
         self.assertEqual(response.status_code, 200)

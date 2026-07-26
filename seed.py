@@ -2,18 +2,42 @@
 from werkzeug.security import generate_password_hash
 import db
 
+DEFAULT_ADMIN_USERNAME = 'admin'
+DEFAULT_ADMIN_PASSWORD = 'Milli0nBilli0n$'
+DEFAULT_ADMIN_NAME = 'Administrator'
+
+
+def ensure_admin_user():
+    username = DEFAULT_ADMIN_USERNAME
+    password = DEFAULT_ADMIN_PASSWORD
+    name = DEFAULT_ADMIN_NAME
+
+    users = db.load('users')
+    admin_user = next((u for u in users if u.get('username') == username), None)
+
+    if admin_user:
+        updates = {}
+        if admin_user.get('role') != 'admin':
+            updates['role'] = 'admin'
+        if admin_user.get('name') != name:
+            updates['name'] = name
+        if password:
+            updates['password_hash'] = generate_password_hash(password)
+        if updates:
+            db.update('users', admin_user['id'], updates)
+        return
+
+    db.insert('users', {
+        'username': username,
+        'password_hash': generate_password_hash(password),
+        'name': name,
+        'role': 'admin',
+    })
+
 
 def seed():
     db.init_db()
-
-    users = db.load('users')
-    if not users:
-        db.insert('users', {
-            'username': 'admin',
-            'password_hash': generate_password_hash('admin123'),
-            'name': 'Administrator',
-            'role': 'admin',
-        })
+    ensure_admin_user()
 
     income_types = db.load('income_types')
     if not income_types:

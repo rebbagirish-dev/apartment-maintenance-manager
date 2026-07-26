@@ -7,7 +7,10 @@ import json
 import os
 import threading
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+DATA_DIR = os.environ.get(
+    'APP_DATA_DIR',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+)
 _lock = threading.Lock()
 
 COLLECTIONS = [
