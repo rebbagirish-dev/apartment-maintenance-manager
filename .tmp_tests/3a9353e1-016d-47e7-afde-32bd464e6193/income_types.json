@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Monthly Maintenance",
+    "description": "",
+    "id": 1
+  },
+  {
+    "name": "Late Fee / Penalty",
+    "description": "",
+    "id": 2
+  },
+  {
+    "name": "Parking Charges",
+    "description": "",
+    "id": 3
+  },
+  {
+    "name": "Interest Income",
+    "description": "",
+    "id": 4
+  },
+  {
+    "name": "Other Income",
+    "description": "",
+    "id": 5
+  }
+]

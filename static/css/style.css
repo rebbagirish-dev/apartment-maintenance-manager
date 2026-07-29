@@ -81,8 +81,25 @@ html, body {
   font-size: 15px;
   box-shadow: 0 2px 8px rgba(79,70,229,0.25);
 }
+.app-header .header-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 10px;
+}
 .app-header a { color: #fff; text-decoration: none; display: flex; align-items: center; }
-.app-header .header-icon { font-size: 20px; padding: 4px; }
+.app-header .header-icon {
+  flex: 0 0 auto;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+}
 
 /* ---- Content ---- */
 .content { padding: 14px; }
@@ -387,6 +404,17 @@ table.report-table td:last-child { text-align: right; font-weight: 600; }
 .login-title { text-align: center; font-weight: 800; font-size: 20px; margin-bottom: 4px; }
 .login-sub { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 12px; }
 .login-card .flash { margin-bottom: 14px; }
+.remember-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 4px 0 14px;
+}
+.remember-row input {
+  width: auto;
+}
 @media (max-width: 480px) {
   .pnl-summary,
   .pnl-grid,

@@ -166,6 +166,18 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('Your session has expired. Please log in again.', text)
 
+    def test_login_page_prefills_remembered_credentials_from_cookies(self):
+        self.client.set_cookie('remember_username', DEFAULT_ADMIN_USERNAME)
+        self.client.set_cookie('remember_password', DEFAULT_ADMIN_PASSWORD)
+        response = self.client.get('/login')
+        text = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f'value="{DEFAULT_ADMIN_USERNAME}"', text)
+        self.assertIn(f'value="{DEFAULT_ADMIN_PASSWORD}"', text)
+        self.assertIn('Remember credentials on this device', text)
+        self.assertIn('checked', text)
+
     def test_reports_page_lists_flats_yet_to_pay_maintenance(self):
         self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.get('/reports?month=2026-07')
@@ -213,6 +225,19 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Task created.', text)
         self.assertEqual(len(tasks), 1)
         self.assertEqual(tasks[0]['name'], 'Lift inspection')
+
+    def test_login_sets_remembered_credential_cookies(self):
+        response = self.client.post('/login', data={
+            'username': DEFAULT_ADMIN_USERNAME,
+            'password': DEFAULT_ADMIN_PASSWORD,
+            'remember_credentials': 'on',
+        })
+        set_cookie_headers = response.headers.getlist('Set-Cookie')
+        cookie_text = ' '.join(set_cookie_headers)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('remember_username=', cookie_text)
+        self.assertIn('remember_password=', cookie_text)
 
     def test_reports_page_shows_task_progress_report(self):
         db.insert('tasks', {

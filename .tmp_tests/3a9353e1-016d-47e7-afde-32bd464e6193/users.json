@@ -1,0 +1,17 @@
+[
+  {
+    "username": "admin",
+    "password_hash": "scrypt:32768:8:1$i0a0wuBoH2gdpKMv$fd90fd4800bf5fcab0f55518bb4ef14f786ce99f1ab378fe6d10e59d0cd9242b2112d546f148cb663ee3433c3028d539994ebf284571c5e4195551d1db5871c3",
+    "name": "Administrator",
+    "role": "admin",
+    "id": 1
+  },
+  {
+    "username": "owner1",
+    "password_hash": "scrypt:32768:8:1$LsNgDRf26FUM3aSD$9c2cd06742691b1e98660d2fca72635d251e3fcd7b8efd67a7eed2b15bfd99a8e3dd60db1cefd0d412b059a0f02a8b0a9c18e83f5757416223081f5d8d41df5f",
+    "name": "Owner One",
+    "role": "owner",
+    "flat_id": 1,
+    "id": 2
+  }
+]

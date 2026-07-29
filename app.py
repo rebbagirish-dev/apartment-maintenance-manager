@@ -14,6 +14,7 @@ from seed import seed
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me-in-production')
+REMEMBER_CREDENTIALS_DAYS = 30
 
 # Sessions time out after 20 minutes of inactivity. Flask refreshes the
 # cookie's expiry on every request by default, so this behaves as an idle
@@ -710,9 +711,13 @@ def month_report(ym):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    saved_username = request.cookies.get('remember_username', '')
+    saved_password = request.cookies.get('remember_password', '')
+    remember_credentials = bool(saved_username or saved_password)
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
+        remember_credentials = request.form.get('remember_credentials') == 'on'
         users = db.load('users')
         user = next((u for u in users if u['username'] == username), None)
         if user and check_password_hash(user['password_hash'], password):
@@ -723,10 +728,26 @@ def login():
             session['name'] = user.get('name', user['username'])
             flash(f"Welcome back, {user.get('name', user['username'])}!", 'success')
             if user['role'] == 'tenant':
-                return redirect(url_for('reports'))
-            return redirect(request.args.get('next') or url_for('dashboard'))
+                response = redirect(url_for('reports'))
+            else:
+                response = redirect(request.args.get('next') or url_for('dashboard'))
+            if remember_credentials:
+                max_age = REMEMBER_CREDENTIALS_DAYS * 24 * 60 * 60
+                response.set_cookie('remember_username', username, max_age=max_age, samesite='Lax')
+                response.set_cookie('remember_password', password, max_age=max_age, samesite='Lax')
+            else:
+                response.delete_cookie('remember_username')
+                response.delete_cookie('remember_password')
+            return response
         flash('Invalid username or password.', 'error')
-    return render_template('login.html')
+        saved_username = username
+        saved_password = password
+    return render_template(
+        'login.html',
+        saved_username=saved_username,
+        saved_password=saved_password,
+        remember_credentials=remember_credentials,
+    )
 
 
 @app.route('/logout')

@@ -1,0 +1,22 @@
+[
+  {
+    "flat_no": "A-101",
+    "owner_name": "Owner One",
+    "tenant_name": "Tenant One",
+    "contact": "1111111111",
+    "maintenance_amount": 1500.0,
+    "status": "active",
+    "created_at": "2026-07-01T09:00:00",
+    "id": 1
+  },
+  {
+    "flat_no": "B-202",
+    "owner_name": "Owner Two",
+    "tenant_name": "Tenant Two",
+    "contact": "2222222222",
+    "maintenance_amount": 2000.0,
+    "status": "active",
+    "created_at": "2026-07-01T09:00:00",
+    "id": 2
+  }
+]
