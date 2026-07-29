@@ -100,6 +100,11 @@ html, body {
   border-radius: 999px;
   background: rgba(255,255,255,0.16);
 }
+.app-header .header-icon-symbol {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
 
 /* ---- Content ---- */
 .content { padding: 14px; }

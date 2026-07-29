@@ -17,7 +17,9 @@
     <div class="app-header">
       <span class="header-title">{% block header_title %}Apartment Manager{% endblock %}</span>
       {% if session.user_id %}
-      <a href="{{ url_for('logout') }}" class="header-icon" title="Logout" aria-label="Logout">&#9211;</a>
+      <a href="{{ url_for('logout') }}" class="header-icon" title="Logout" aria-label="Logout">
+        <span class="header-icon-symbol">&#8594;</span>
+      </a>
       {% endif %}
     </div>
 
