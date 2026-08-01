@@ -17,7 +17,7 @@ COLLECTIONS = [
     'users', 'flats', 'income_types', 'expense_types',
     'income_tx', 'expense_tx', 'watchman_ledger',
     'monthly_summary', 'events', 'event_contributions', 'event_expenses',
-    'settings', 'corpus_fund_log', 'tasks', 'documents'
+    'settings', 'corpus_fund_log', 'tasks', 'documents', 'document_categories'
 ]
 
 

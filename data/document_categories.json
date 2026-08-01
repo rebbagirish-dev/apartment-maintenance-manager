@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Lift Servicing Receipts",
+    "id": 1
+  },
+  {
+    "name": "Generator Servicing Receipts",
+    "id": 2
+  },
+  {
+    "name": "AMC Invoices",
+    "id": 3
+  },
+  {
+    "name": "Utility Bills",
+    "id": 4
+  },
+  {
+    "name": "Repair Invoices",
+    "id": 5
+  },
+  {
+    "name": "Compliance Documents",
+    "id": 6
+  },
+  {
+    "name": "Insurance Documents",
+    "id": 7
+  },
+  {
+    "name": "Other Documents",
+    "id": 8
+  }
+]

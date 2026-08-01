@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Document Categories{% endblock %}
+{% block header_title %}Master Data{% endblock %}
+{% block content %}
+
+{% include '_master_menu.html' %}
+
+<div class="card collapsible-card" id="documentCategoryCard">
+  <div class="card-header">
+    <div class="card-title">Document Categories ({{ categories|length }})</div>
+    {% if session.role == 'admin' %}
+    <button type="button" class="collapse-toggle" data-collapsible-toggle aria-expanded="false">
+      <span data-collapsible-icon>+</span>
+    </button>
+    {% endif %}
+  </div>
+  {% if session.role == 'admin' %}
+  <form method="POST" data-collapsible-body hidden>
+    <div class="form-group">
+      <label>Category Name</label>
+      <input name="name" required placeholder="e.g. Fire Safety AMC">
+    </div>
+    <button class="btn block" type="submit">+ Add Category</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-title">All Categories</div>
+  {% for category in categories %}
+  <div class="list-row">
+    <div class="main">{{ category.name }}</div>
+    {% if session.role == 'admin' %}
+    <form method="POST" action="{{ url_for('delete_document_category', category_id=category.id) }}">
+      <button class="btn danger sm" type="submit" onclick="return confirm('Delete this category?');">Delete</button>
+    </form>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="empty-state">No document categories configured yet.</div>
+  {% endfor %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  initMenu('masterMenu');
+  initCollapsibleCard('documentCategoryCard');
+});
+</script>
+{% endblock %}

@@ -12,6 +12,7 @@
     {% endif %}
     <a href="{{ url_for('tasks') }}" class="{{ 'active' if request.endpoint in ['tasks', 'edit_task'] }}">Tasks</a>
     <a href="{{ url_for('documents') }}" class="{{ 'active' if request.endpoint in ['documents', 'document_file'] }}">Documents</a>
+    <a href="{{ url_for('document_categories') }}" class="{{ 'active' if request.endpoint in ['document_categories', 'delete_document_category'] }}">Document Categories</a>
     <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' }}">Opening Balance</a>
   </div>
 </div>

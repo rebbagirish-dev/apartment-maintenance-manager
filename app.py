@@ -69,19 +69,10 @@ TENANT_ALLOWED_ENDPOINTS = {
 }
 OWNER_BLOCKED_ENDPOINTS = {
     'users', 'edit_user', 'delete_user', 'income_types', 'delete_income_type',
-    'expense_types', 'delete_expense_type', 'settings_page', 'tasks', 'edit_task', 'delete_task',
+    'expense_types', 'delete_expense_type', 'document_categories', 'delete_document_category',
+    'settings_page', 'tasks', 'edit_task', 'delete_task',
 }
 
-DOCUMENT_CATEGORIES = [
-    'Lift Servicing Receipts',
-    'Generator Servicing Receipts',
-    'AMC Invoices',
-    'Utility Bills',
-    'Repair Invoices',
-    'Compliance Documents',
-    'Insurance Documents',
-    'Other Documents',
-]
 ALLOWED_DOCUMENT_EXTENSIONS = {
     'pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif',
     'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt',
@@ -255,6 +246,21 @@ def normalize_document_category(category, custom_category=''):
     if selected:
         return selected
     return 'Uncategorized'
+
+
+def get_document_categories():
+    categories = sorted(
+        [c.get('name', '').strip() for c in db.load('document_categories') if c.get('name', '').strip()],
+        key=str.lower
+    )
+    return categories or ['Uncategorized']
+
+
+def get_document_category_records():
+    return sorted(
+        [c for c in db.load('document_categories') if c.get('name', '').strip()],
+        key=lambda x: x.get('name', '').lower()
+    )
 
 
 def decorate_documents(records):
@@ -763,7 +769,7 @@ def logout():
 @app.route('/')
 @login_required
 def dashboard():
-    ym = current_month()
+    ym = request.args.get('month', current_month())
     report = month_report(ym)
     balance = overall_balance()
     flats = db.load('flats')
@@ -772,7 +778,11 @@ def dashboard():
     advances = sum(to_float(t['amount']) for t in watchman if t['type'] == 'advance')
     recoveries = sum(to_float(t['amount']) for t in watchman if t['type'] == 'recovery')
     watchman_due = advances - recoveries
-    recent_expenses = sorted(db.load('expense_tx'), key=lambda x: x['date'], reverse=True)[:5]
+    recent_expenses = sorted(
+        [x for x in db.load('expense_tx') if (x.get('date') or '')[:7] == ym],
+        key=lambda x: x['date'],
+        reverse=True,
+    )[:5]
     expense_types = db.load('expense_types')
     for e in recent_expenses:
         e['type_name'] = lookup(expense_types, e['expense_type_id'])
@@ -906,10 +916,49 @@ def documents():
     library = grouped_documents(db.load('documents'))
     return render_template(
         'documents.html',
-        document_categories=DOCUMENT_CATEGORIES,
+        document_categories=get_document_categories(),
         document_groups=library,
         total_documents=sum(len(group['documents']) for group in library),
     )
+
+
+@app.route('/document-categories', methods=['GET', 'POST'])
+@login_required
+def document_categories():
+    if request.method == 'POST':
+        if session.get('role') != 'admin':
+            flash('Only admins can manage document categories.', 'error')
+            return redirect(url_for('document_categories'))
+        name = request.form.get('name', '').strip()
+        if not name:
+            flash('Category name is required.', 'error')
+            return redirect(url_for('document_categories'))
+        existing = {c.get('name', '').strip().lower() for c in db.load('document_categories')}
+        if name.lower() in existing:
+            flash('Document category already exists.', 'error')
+            return redirect(url_for('document_categories'))
+        db.insert('document_categories', {'name': name})
+        flash('Document category added.', 'success')
+        return redirect(url_for('document_categories'))
+    return render_template('document_categories.html', categories=get_document_category_records())
+
+
+@app.route('/document-categories/<int:category_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_document_category(category_id):
+    category = db.get('document_categories', category_id)
+    if not category:
+        flash('Document category not found.', 'error')
+        return redirect(url_for('document_categories'))
+    category_name = category.get('name', '').strip()
+    in_use = any((doc.get('category') or '').strip().lower() == category_name.lower() for doc in db.load('documents'))
+    if in_use:
+        flash('This category is already used by uploaded documents.', 'error')
+        return redirect(url_for('document_categories'))
+    db.delete('document_categories', category_id)
+    flash('Document category removed.', 'success')
+    return redirect(url_for('document_categories'))
 
 
 @app.route('/documents/<int:document_id>/file')

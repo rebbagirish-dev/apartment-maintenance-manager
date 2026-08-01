@@ -5,6 +5,16 @@ import db
 DEFAULT_ADMIN_USERNAME = 'admin'
 DEFAULT_ADMIN_PASSWORD = 'Milli0nBilli0n$'
 DEFAULT_ADMIN_NAME = 'Administrator'
+DEFAULT_DOCUMENT_CATEGORIES = [
+    'Lift Servicing Receipts',
+    'Generator Servicing Receipts',
+    'AMC Invoices',
+    'Utility Bills',
+    'Repair Invoices',
+    'Compliance Documents',
+    'Insurance Documents',
+    'Other Documents',
+]
 
 
 def ensure_admin_user():
@@ -38,6 +48,12 @@ def ensure_admin_user():
 def seed():
     db.init_db()
     ensure_admin_user()
+
+    document_categories = db.load('document_categories')
+    existing_categories = {c.get('name', '').strip().lower() for c in document_categories}
+    for name in DEFAULT_DOCUMENT_CATEGORIES:
+        if name.lower() not in existing_categories:
+            db.insert('document_categories', {'name': name})
 
     income_types = db.load('income_types')
     if not income_types:

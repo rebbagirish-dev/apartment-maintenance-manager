@@ -334,6 +334,61 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Task Summary', text)
         self.assertIn('Intercom follow-up', text)
 
+    def test_dashboard_recent_expenses_only_shows_current_month(self):
+        expense_type = db.load('expense_types')[0]
+        db.insert('expense_tx', {
+            'date': '2026-08-01',
+            'expense_type_id': expense_type['id'],
+            'amount': 900.0,
+            'paid_to': 'August Vendor',
+            'remarks': '',
+            'recorded_by': 'admin',
+        })
+        db.insert('expense_tx', {
+            'date': '2026-07-31',
+            'expense_type_id': expense_type['id'],
+            'amount': 700.0,
+            'paid_to': 'July Vendor',
+            'remarks': '',
+            'recorded_by': 'admin',
+        })
+
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        response = self.client.get('/')
+        text = response.get_data(as_text=True)
+
+        self.assertIn('August Vendor', text)
+        self.assertNotIn('July Vendor', text)
+
+    def test_dashboard_month_filter_shows_selected_month_data(self):
+        expense_type = db.load('expense_types')[0]
+        maintenance_type = next(t for t in db.load('income_types') if t['name'] == 'Monthly Maintenance')
+        db.insert('income_tx', {
+            'flat_id': self.flat_one_id,
+            'income_type_id': maintenance_type['id'],
+            'amount': 1500.0,
+            'for_month': '2026-08',
+            'status': 'paid',
+            'paid_date': '2026-08-01',
+            'remarks': 'August payment',
+        })
+        db.insert('expense_tx', {
+            'date': '2026-08-01',
+            'expense_type_id': expense_type['id'],
+            'amount': 300.0,
+            'paid_to': 'August Vendor',
+            'remarks': '',
+            'recorded_by': 'admin',
+        })
+
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        response = self.client.get('/?month=2026-07')
+        text = response.get_data(as_text=True)
+
+        self.assertIn('July 2026', text)
+        self.assertIn('Flat B-202', self.client.get('/income?month=2026-07').get_data(as_text=True))
+        self.assertNotIn('August Vendor', text)
+
     def test_admin_can_upload_document(self):
         self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         response = self.client.post('/documents', data={
@@ -352,6 +407,17 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertEqual(documents[0]['title'], 'July Lift AMC')
         stored_path = self.temp_dir / 'documents_store' / documents[0]['stored_filename']
         self.assertTrue(stored_path.exists())
+
+    def test_admin_can_add_document_category(self):
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        response = self.client.post('/document-categories', data={
+            'name': 'Fire Safety AMC',
+        }, follow_redirects=True)
+        text = response.get_data(as_text=True)
+        categories = db.load('document_categories')
+
+        self.assertIn('Document category added.', text)
+        self.assertTrue(any(c['name'] == 'Fire Safety AMC' for c in categories))
 
     def test_tenant_can_view_document_library(self):
         db.insert('documents', {
@@ -377,6 +443,16 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Document Library', text)
         self.assertIn('Generator Servicing Receipts', text)
         self.assertIn('Generator AMC Invoice', text)
+
+    def test_manager_cannot_add_document_category(self):
+        self.login('manager1', 'secret123')
+        response = self.client.post('/document-categories', data={
+            'name': 'Restricted Category',
+        }, follow_redirects=True)
+        text = response.get_data(as_text=True)
+
+        self.assertIn('Only admins can manage document categories.', text)
+        self.assertFalse(any(c['name'] == 'Restricted Category' for c in db.load('document_categories')))
 
     def test_seed_recreates_admin_when_missing(self):
         db.save('users', [])

@@ -3,6 +3,11 @@
 {% block header_title %}Hi, {{ session.name }}{% endblock %}
 {% block content %}
 
+<form method="GET" class="month-picker">
+  <h2 class="page-title" style="margin:0;">{{ report.label }}</h2>
+  <input type="month" name="month" value="{{ ym }}" onchange="this.form.submit()" style="width:auto;">
+</form>
+
 <div class="balance-card">
   <div class="label">Current Balance</div>
   <div class="amount">₹{{ '%.2f'|format(balance) }}</div>
@@ -83,7 +88,7 @@
     </div>
     {% endfor %}
   {% else %}
-    <div class="empty-state"><div class="icon">&#128203;</div>No expenses recorded yet.</div>
+    <div class="empty-state"><div class="icon">&#128203;</div>No expenses recorded for {{ report.label }} yet.</div>
   {% endif %}
 </div>
 
