@@ -115,10 +115,32 @@
   {% endfor %}
 </div>
 
+<div class="card">
+  <div class="card-title">Forum Glance</div>
+  <div class="stat-grid" style="margin-bottom:14px;">
+    <div class="stat-box"><div class="num">{{ forum_summary.total_threads }}</div><div class="lbl">Total Discussions</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--amber)">{{ forum_summary.unanswered_threads }}</div><div class="lbl">Awaiting Replies</div></div>
+  </div>
+  {% for thread in forum_summary.recent_threads %}
+  <div class="list-row">
+    <div>
+      <div class="main">{{ thread.title }}</div>
+      <div class="sub">{{ thread.author_name or thread.author_username }}{% if thread.reply_count == 0 %} · No replies yet{% else %} · {{ thread.reply_count }} repl{{ 'y' if thread.reply_count == 1 else 'ies' }}{% endif %}</div>
+    </div>
+    <div class="small-link">Forum</div>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="icon">&#128172;</div>No discussions posted yet.</div>
+  {% endfor %}
+  <a href="{{ url_for('forum') }}" class="small-link" style="margin-top:10px; display:inline-block;">Open Community Forum →</a>
+</div>
+
 {% if session.role in ['admin', 'manager'] %}
-<a href="{{ url_for('flats') }}" class="small-link">Manage Flats &amp; Master Data →</a>
+<a href="{{ url_for('flats') }}" class="small-link">Manage Flats &amp; Master Data →</a><br><br>
+<a href="{{ url_for('forum') }}" class="small-link">Visit Forum →</a>
 {% else %}
 <a href="{{ url_for('flats') }}" class="small-link">View Flats →</a><br><br>
+<a href="{{ url_for('forum') }}" class="small-link">Visit Forum →</a><br><br>
 <a href="{{ url_for('reports') }}" class="small-link">View Reports →</a>
 {% endif %}
 {% endblock %}

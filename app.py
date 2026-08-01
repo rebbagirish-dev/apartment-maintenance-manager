@@ -809,13 +809,19 @@ def dashboard():
     task_items = sorted_tasks(db.load('tasks'))
     task_summary = summarize_tasks(task_items)
     upcoming_tasks = [t for t in task_items if not t.get('is_completed')][:5]
+    forum_threads = forum_threads_with_replies()
+    forum_summary = {
+        'total_threads': len(forum_threads),
+        'unanswered_threads': sum(1 for thread in forum_threads if thread.get('reply_count', 0) == 0),
+        'recent_threads': forum_threads[:3],
+    }
 
     return render_template('dashboard.html', balance=balance, report=report,
                             flat_count=len(active_flats), watchman_due=watchman_due,
                             recent_expenses=recent_expenses, ym=ym,
                             corpus=corpus_fund_balance(), resident_flat=resident_flat,
                             resident_summary=resident_summary, task_summary=task_summary,
-                            upcoming_tasks=upcoming_tasks)
+                            upcoming_tasks=upcoming_tasks, forum_summary=forum_summary)
 
 
 @app.route('/settings', methods=['GET', 'POST'])

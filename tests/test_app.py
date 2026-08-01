@@ -371,6 +371,23 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Task Summary', text)
         self.assertIn('Intercom follow-up', text)
 
+    def test_dashboard_shows_forum_glance(self):
+        db.insert('forum_threads', {
+            'title': 'Generator noise',
+            'body': 'Has anyone noticed increased generator noise?',
+            'author_username': 'tenant1',
+            'author_name': 'Tenant One',
+            'created_at': '2026-08-01T09:00:00',
+            'last_activity_at': '2026-08-01T09:00:00',
+        })
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        response = self.client.get('/')
+        text = response.get_data(as_text=True)
+
+        self.assertIn('Forum Glance', text)
+        self.assertIn('Generator noise', text)
+        self.assertIn('Awaiting Replies', text)
+
     def test_dashboard_recent_expenses_only_shows_current_month(self):
         expense_type = db.load('expense_types')[0]
         db.insert('expense_tx', {
