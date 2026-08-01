@@ -1,7 +1,7 @@
 [
   {
     "username": "admin",
-    "password_hash": "scrypt:32768:8:1$ESBgYg1dQ2TBdEEO$6e51b813d4444420c22fea0e80b39b2a163376a41fcd15077f716fa85039fb45a6887b89a589152f5ce50a24e6f5ae0b15baf45fe140912d1548a4a5a96fefaf",
+    "password_hash": "scrypt:32768:8:1$76XOykFQcUDC82dK$2c71f29a209c01816e167cc72ff03bb854b986e2d298f896ebb9f8fbdccff1e6db0a99452723c10b0bcf2e05365d7dbf2a3b037494aee5975e8c7effaec32c9a",
     "name": "Administrator",
     "role": "admin",
     "id": 1

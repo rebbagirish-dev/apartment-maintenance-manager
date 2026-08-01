@@ -64,7 +64,7 @@ def admin_required(view):
 TENANT_ALLOWED_ENDPOINTS = {
     'reports', 'export_report', 'export_report_pdf', 'event_report', 'export_event_report',
     'export_event_report_pdf', 'export_tasks_report_csv', 'export_tasks_report_pdf',
-    'documents', 'document_file',
+    'documents', 'document_file', 'forum', 'reply_forum_thread',
     'logout', 'static', 'manifest', 'service_worker',
 }
 OWNER_BLOCKED_ENDPOINTS = {
@@ -77,6 +77,7 @@ ALLOWED_DOCUMENT_EXTENSIONS = {
     'pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif',
     'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt',
 }
+OWNER_POST_ALLOWED_ENDPOINTS = {'forum', 'reply_forum_thread'}
 
 @app.before_request
 def enforce_role_access():
@@ -95,7 +96,7 @@ def enforce_role_access():
         if endpoint in OWNER_BLOCKED_ENDPOINTS:
             flash("That section isn't available for your account.", 'error')
             return redirect(url_for('dashboard'))
-        if request.method == 'POST':
+        if request.method == 'POST' and endpoint not in OWNER_POST_ALLOWED_ENDPOINTS:
             flash('Your account has view-only access.', 'error')
             return redirect(request.referrer or url_for('dashboard'))
 
@@ -261,6 +262,22 @@ def get_document_category_records():
         [c for c in db.load('document_categories') if c.get('name', '').strip()],
         key=lambda x: x.get('name', '').lower()
     )
+
+
+def forum_threads_with_replies():
+    threads = sorted(db.load('forum_threads'), key=lambda x: x.get('last_activity_at') or x.get('created_at') or '', reverse=True)
+    replies = sorted(db.load('forum_replies'), key=lambda x: x.get('created_at') or '')
+    replies_by_thread = {}
+    for reply in replies:
+        replies_by_thread.setdefault(reply.get('thread_id'), []).append(reply)
+    items = []
+    for thread in threads:
+        thread_copy = dict(thread)
+        thread_replies = replies_by_thread.get(thread['id'], [])
+        thread_copy['replies'] = thread_replies
+        thread_copy['reply_count'] = len(thread_replies)
+        items.append(thread_copy)
+    return items
 
 
 def decorate_documents(records):
@@ -990,6 +1007,53 @@ def delete_document(document_id):
     db.delete('documents', document_id)
     flash('Document deleted.', 'success')
     return redirect(url_for('documents'))
+
+
+@app.route('/forum', methods=['GET', 'POST'])
+@login_required
+def forum():
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        body = request.form.get('body', '').strip()
+        if not title or not body:
+            flash('Please provide both a subject and your message.', 'error')
+            return redirect(url_for('forum'))
+        now = datetime.now().isoformat(timespec='seconds')
+        db.insert('forum_threads', {
+            'title': title,
+            'body': body,
+            'author_username': session.get('username'),
+            'author_name': session.get('name') or session.get('username'),
+            'created_at': now,
+            'last_activity_at': now,
+        })
+        flash('Discussion posted.', 'success')
+        return redirect(url_for('forum'))
+    return render_template('forum.html', threads=forum_threads_with_replies())
+
+
+@app.route('/forum/<int:thread_id>/reply', methods=['POST'])
+@login_required
+def reply_forum_thread(thread_id):
+    thread = db.get('forum_threads', thread_id)
+    if not thread:
+        flash('Discussion thread not found.', 'error')
+        return redirect(url_for('forum'))
+    body = request.form.get('body', '').strip()
+    if not body:
+        flash('Reply cannot be empty.', 'error')
+        return redirect(url_for('forum'))
+    now = datetime.now().isoformat(timespec='seconds')
+    db.insert('forum_replies', {
+        'thread_id': thread_id,
+        'body': body,
+        'author_username': session.get('username'),
+        'author_name': session.get('name') or session.get('username'),
+        'created_at': now,
+    })
+    db.update('forum_threads', thread_id, {'last_activity_at': now})
+    flash('Reply added.', 'success')
+    return redirect(url_for('forum'))
 
 
 @app.route('/corpus-fund')

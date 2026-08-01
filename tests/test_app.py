@@ -260,6 +260,43 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Water tank cleaning', text)
         self.assertIn('Completed', text)
 
+    def test_tenant_can_create_forum_thread(self):
+        self.login('tenant1', 'secret123')
+        response = self.client.post('/forum', data={
+            'title': 'Water timing',
+            'body': 'Can we discuss morning water timings?',
+        }, follow_redirects=True)
+        text = response.get_data(as_text=True)
+        threads = db.load('forum_threads')
+
+        self.assertIn('Discussion posted.', text)
+        self.assertEqual(len(threads), 1)
+        self.assertEqual(threads[0]['title'], 'Water timing')
+        self.assertEqual(threads[0]['author_username'], 'tenant1')
+
+    def test_owner_can_reply_in_forum_thread(self):
+        thread = db.insert('forum_threads', {
+            'title': 'Lift vibration',
+            'body': 'Noticed vibration yesterday.',
+            'author_username': 'tenant1',
+            'author_name': 'Tenant One',
+            'created_at': '2026-08-01T08:00:00',
+            'last_activity_at': '2026-08-01T08:00:00',
+        })
+        self.login('owner1', 'secret123')
+        response = self.client.post(f'/forum/{thread["id"]}/reply', data={
+            'body': 'I also observed this near 7 PM.',
+        }, follow_redirects=True)
+        text = response.get_data(as_text=True)
+        replies = db.load('forum_replies')
+        updated_thread = db.get('forum_threads', thread['id'])
+
+        self.assertIn('Reply added.', text)
+        self.assertEqual(len(replies), 1)
+        self.assertEqual(replies[0]['thread_id'], thread['id'])
+        self.assertEqual(replies[0]['author_username'], 'owner1')
+        self.assertNotEqual(updated_thread['last_activity_at'], '2026-08-01T08:00:00')
+
     def test_tasks_page_filters_by_status(self):
         db.insert('tasks', {
             'name': 'Lift repair',
@@ -443,6 +480,23 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Document Library', text)
         self.assertIn('Generator Servicing Receipts', text)
         self.assertIn('Generator AMC Invoice', text)
+
+    def test_tenant_can_view_forum(self):
+        db.insert('forum_threads', {
+            'title': 'Parking slots',
+            'body': 'Can we repaint slot numbers?',
+            'author_username': 'admin',
+            'author_name': 'Administrator',
+            'created_at': '2026-08-01T09:00:00',
+            'last_activity_at': '2026-08-01T09:00:00',
+        })
+        self.login('tenant1', 'secret123')
+        response = self.client.get('/forum')
+        text = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Community Forum', text)
+        self.assertIn('Parking slots', text)
 
     def test_manager_cannot_add_document_category(self):
         self.login('manager1', 'secret123')

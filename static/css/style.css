@@ -336,6 +336,41 @@ textarea { resize: vertical; }
   font-size: 16px;
   font-weight: 700;
 }
+.forum-thread {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: #fff;
+}
+.forum-thread:last-child {
+  margin-bottom: 0;
+}
+.forum-thread-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+.forum-thread-body,
+.forum-reply-body {
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 14px;
+  margin-top: 10px;
+}
+.forum-reply {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--bg);
+}
+.forum-reply-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
 
 /* ---- Flash messages ---- */
 .flash { padding: 12px 14px; border-radius: 12px; margin-bottom: 12px; font-size: 14px; font-weight: 500; }

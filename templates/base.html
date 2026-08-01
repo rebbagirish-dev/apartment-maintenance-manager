@@ -37,11 +37,12 @@
       {% block content %}{% endblock %}
     </div>
 
-    {% if session.user_id and session.role != 'tenant' %}
+    {% if session.user_id %}
     <div class="bottom-nav">
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">
         <span class="icon">&#127968;</span>Home
       </a>
+      {% if session.role != 'tenant' %}
       <a href="{{ url_for('income') }}" class="{{ 'active' if request.endpoint in ['income'] }}">
         <span class="icon">&#128176;</span>Income
       </a>
@@ -56,12 +57,18 @@
         <span class="icon">&#128221;</span>Tasks
       </a>
       {% endif %}
+      {% endif %}
+      <a href="{{ url_for('forum') }}" class="{{ 'active' if request.endpoint in ['forum', 'reply_forum_thread'] }}">
+        <span class="icon">&#128172;</span>Forum
+      </a>
       <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' }}">
         <span class="icon">&#128202;</span>Reports
       </a>
+      {% if session.role != 'tenant' %}
       <a href="{{ url_for('events') }}" class="{{ 'active' if request.endpoint in ['events','event_detail','event_report'] }}">
         <span class="icon">&#127881;</span>Events
       </a>
+      {% endif %}
     </div>
     {% endif %}
   </div>
