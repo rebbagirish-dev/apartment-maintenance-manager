@@ -32,7 +32,7 @@
       </select>
     </div>
     <div class="form-group"><label>Paid To</label><input name="paid_to" placeholder="Vendor / person name"></div>
-    <div class="form-group"><label>Remarks</label><input name="remarks"></div>
+    <div class="form-group"><label>Remarks / Miscellaneous Subcategory</label><input name="remarks" placeholder="e.g. Plumbing repair, Lift AMC, Cleaning supplies"></div>
     <button class="btn block" type="submit">+ Save Expense</button>
   </form>
 </div>
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="list-row">
     <div>
       <div class="main">{{ t.type_name }}</div>
-      <div class="sub">{{ t.date }}{% if t.paid_to %} · Paid to {{ t.paid_to }}{% endif %}{% if t.remarks %} · {{ t.remarks }}{% endif %}</div>
+      <div class="sub">{{ t.date }}{% if t.subcategory %} · {{ t.subcategory }}{% endif %}{% if t.paid_to %} · Paid to {{ t.paid_to }}{% endif %}{% if t.remarks and not t.subcategory %} · {{ t.remarks }}{% endif %}</div>
     </div>
     <div class="amt neg">-₹{{ '%.2f'|format(t.amount) }}</div>
   </div>

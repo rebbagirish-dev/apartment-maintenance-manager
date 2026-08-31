@@ -149,6 +149,29 @@ def format_money(amount):
     return f"Rs. {to_float(amount):,.2f}"
 
 
+def is_miscellaneous_expense(type_name):
+    normalized = (type_name or '').strip().lower()
+    return normalized in {'miscellaneous', 'misc', 'misc.'}
+
+
+def expense_subcategory(tx):
+    return (tx.get('remarks') or tx.get('description') or '').strip()
+
+
+def expense_display_name(expense_types, tx):
+    type_name = lookup(expense_types, tx.get('expense_type_id'))
+    return type_name
+
+
+def decorate_expense_tx(tx, expense_types):
+    type_name = lookup(expense_types, tx.get('expense_type_id'))
+    subcategory = expense_subcategory(tx) if is_miscellaneous_expense(type_name) else ''
+    tx['type_name'] = type_name
+    tx['subcategory'] = subcategory
+    tx['display_type_name'] = expense_display_name(expense_types, tx)
+    return tx
+
+
 def get_settings():
     records = db.load('settings')
     if not records:
@@ -327,6 +350,13 @@ def pdf_safe_text(value):
     return str(value).replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
 
 
+def shorten_text(value, max_chars):
+    text = str(value)
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars - 3].rstrip() + '...'
+
+
 LETTERHEAD_TITLE = "SUCASA WINDGATES"
 LETTERHEAD_SUBTITLE = "Apartment Maintenance Statement"
 LETTERHEAD_ADDRESS = "Shirdisainagar Road No.1, Manikonda, Hyderabad-500089"
@@ -457,7 +487,13 @@ def build_text_pdf(title, lines):
 
 def build_profit_loss_pdf(report):
     income_items = list(report['income_by_type'].items()) or [('No income this month', 0.0)]
-    expense_items = list(report['expense_by_type'].items()) or [('No expenses this month', 0.0)]
+    expense_items = []
+    for group in report.get('expense_groups', []):
+        expense_items.append((group['name'], group['amount']))
+        for item in group.get('subitems', []):
+            expense_items.append((f"  - {item['name']}", item['amount']))
+    if not expense_items:
+        expense_items = [('No expenses this month', 0.0)]
     row_count = max(len(income_items), len(expense_items))
     total_income_text = f"{report['total_income']:.2f}"
     total_expense_text = f"{report['total_expense']:.2f}"
@@ -529,7 +565,7 @@ def build_profit_loss_pdf(report):
             "BT",
             "/F1 10 Tf",
             f"60 {y} Td",
-            f"({pdf_safe_text(income_name)}) Tj",
+            f"({pdf_safe_text(shorten_text(income_name, 36))}) Tj",
             "ET",
         ])
         if income_name:
@@ -545,7 +581,7 @@ def build_profit_loss_pdf(report):
                 "BT",
                 "/F1 10 Tf",
                 f"{expense_name_x} {y} Td",
-                f"({pdf_safe_text(expense_name)}) Tj",
+                f"({pdf_safe_text(shorten_text(expense_name, 36))}) Tj",
                 "ET",
             ])
         if expense_name:
@@ -715,9 +751,17 @@ def month_report(ym):
         income_by_type[name] = income_by_type.get(name, 0) + to_float(t['amount'])
 
     expense_by_type = {}
+    expense_subcategories = {}
     for t in expense_tx:
-        name = lookup(expense_types, t['expense_type_id'])
+        decorate_expense_tx(t, expense_types)
+        name = t['type_name']
         expense_by_type[name] = expense_by_type.get(name, 0) + to_float(t['amount'])
+        if t.get('subcategory'):
+            expense_subcategories.setdefault(name, {})
+            subcategory = t['subcategory']
+            expense_subcategories[name][subcategory] = (
+                expense_subcategories[name].get(subcategory, 0) + to_float(t['amount'])
+            )
 
     total_income = sum(income_by_type.values())
     total_expense = sum(expense_by_type.values())
@@ -737,9 +781,18 @@ def month_report(ym):
             'remarks': t.get('remarks', ''),
         })
 
+    expense_groups = []
+    for name, amount in expense_by_type.items():
+        subitems = [
+            {'name': sub_name, 'amount': sub_amount}
+            for sub_name, sub_amount in expense_subcategories.get(name, {}).items()
+        ]
+        expense_groups.append({'name': name, 'amount': amount, 'subitems': subitems})
+
     return {
         'ym': ym, 'label': month_label(ym),
         'income_by_type': income_by_type, 'expense_by_type': expense_by_type,
+        'expense_groups': expense_groups,
         'total_income': total_income, 'total_expense': total_expense,
         'opening_balance': opening, 'closing_balance': closing,
         'net': total_income - total_expense,
@@ -773,9 +826,11 @@ def format_whatsapp_monthly_report(report):
         lines.append("- No income recorded for this month")
 
     lines.extend(["", "*Expenses*"])
-    if report['expense_by_type']:
-        for name, amount in report['expense_by_type'].items():
-            lines.append(f"- {name}: {format_money(amount)}")
+    if report['expense_groups']:
+        for group in report['expense_groups']:
+            lines.append(f"- {group['name']}: {format_money(group['amount'])}")
+            for item in group['subitems']:
+                lines.append(f"  - {item['name']}: {format_money(item['amount'])}")
     else:
         lines.append("- No expenses recorded for this month")
 
@@ -865,7 +920,7 @@ def dashboard():
     )[:5]
     expense_types = db.load('expense_types')
     for e in recent_expenses:
-        e['type_name'] = lookup(expense_types, e['expense_type_id'])
+        decorate_expense_tx(e, expense_types)
 
     resident_flat = current_user_flat()
     resident_summary = resident_due_summary(resident_flat['id'], ym) if resident_flat else None
@@ -1445,7 +1500,7 @@ def expenses():
     expense_types_list = db.load('expense_types')
     tx = [t for t in db.load('expense_tx') if t['date'][:7] == ym]
     for t in tx:
-        t['type_name'] = lookup(expense_types_list, t['expense_type_id'])
+        decorate_expense_tx(t, expense_types_list)
     tx.sort(key=lambda x: x['date'], reverse=True)
     total = sum(to_float(t['amount']) for t in tx)
     return render_template('expenses.html', tx=tx, ym=ym, month_label=month_label(ym),
@@ -1558,10 +1613,14 @@ def export_report(ym):
     lines.append(f"Total Operating Income,{report['total_income']:.2f}")
     lines.append("")
     lines.append("OPERATING EXPENSES")
-    lines.append("Type,Amount")
-    for k, v in report['expense_by_type'].items():
-        lines.append(f"{k},{v:.2f}")
-    lines.append(f"Total Operating Expenses,{report['total_expense']:.2f}")
+    lines.append("Type,Subcategory,Amount")
+    for group in report['expense_groups']:
+        group_name = group['name'].replace(',', ';')
+        lines.append(f"{group_name},,{group['amount']:.2f}")
+        for item in group['subitems']:
+            subcategory = item['name'].replace(',', ';')
+            lines.append(f"{group_name},{subcategory},{item['amount']:.2f}")
+    lines.append(f"Total Operating Expenses,,{report['total_expense']:.2f}")
     lines.append("")
     lines.append(f"Excess of Income over Expenditure,{report['net']:.2f}")
     lines.append(f"Closing Balance / Capital Carried Forward,{report['closing_balance']:.2f}")
@@ -1612,9 +1671,11 @@ def export_report_pdf(ym):
     if not report['income_by_type']:
         lines.append("- No income this month")
     lines.extend(["", "Operating Expense Breakdown"])
-    for k, v in report['expense_by_type'].items():
-        lines.append(f"- {k}: {v:.2f}")
-    if not report['expense_by_type']:
+    for group in report['expense_groups']:
+        lines.append(f"- {group['name']}: {group['amount']:.2f}")
+        for item in group['subitems']:
+            lines.append(f"  - {item['name']}: {item['amount']:.2f}")
+    if not report['expense_groups']:
         lines.append("- No expenses this month")
     if report['unpaid_by_flat']:
         lines.extend(["", "Flats Yet to Pay Maintenance"])

@@ -73,10 +73,19 @@
     </div>
     <div class="pnl-column">
       <div class="pnl-column-title">Operating Expenses</div>
-      {% for k, v in report.expense_by_type.items() %}
+      {% for group in report.expense_groups %}
       <div class="list-row">
-        <div class="main">{{ k }}</div>
-        <div class="amt neg">₹{{ '%.2f'|format(v) }}</div>
+        <div>
+          <div class="main">{{ group.name }}</div>
+          {% if group.subitems %}
+          <div class="expense-subitems">
+            {% for item in group.subitems %}
+            <div class="expense-subitem"><span>• {{ item.name }}</span><span>₹{{ '%.2f'|format(item.amount) }}</span></div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="amt neg">₹{{ '%.2f'|format(group.amount) }}</div>
       </div>
       {% else %}
       <div class="empty-state">No expenses this month.</div>

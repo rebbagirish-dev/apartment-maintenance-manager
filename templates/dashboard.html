@@ -82,7 +82,7 @@
     <div class="list-row">
       <div>
         <div class="main">{{ e.type_name }}</div>
-        <div class="sub">{{ e.date }} {% if e.paid_to %}· {{ e.paid_to }}{% endif %}</div>
+        <div class="sub">{{ e.date }}{% if e.subcategory %} · {{ e.subcategory }}{% endif %}{% if e.paid_to %} · {{ e.paid_to }}{% endif %}</div>
       </div>
       <div class="amt neg">-₹{{ '%.2f'|format(e.amount) }}</div>
     </div>

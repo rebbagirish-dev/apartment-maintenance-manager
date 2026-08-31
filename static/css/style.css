@@ -188,6 +188,8 @@ html, body {
 .list-row .main { font-weight: 600; font-size: 14.5px; }
 .list-row .sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
 .list-row .amt { font-weight: 700; font-size: 15px; }
+.expense-subitems { margin-top: 6px; padding-left: 10px; color: var(--text-muted); font-size: 12.5px; }
+.expense-subitem { display: flex; justify-content: space-between; gap: 12px; margin-top: 3px; }
 .amt.pos { color: var(--green); }
 .amt.neg { color: var(--red); }
 .task-done { text-decoration: line-through; opacity: 0.72; }

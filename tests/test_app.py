@@ -416,6 +416,38 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('August Vendor', text)
         self.assertNotIn('July Vendor', text)
 
+    def test_miscellaneous_expenses_show_subcategory_from_remarks(self):
+        misc_type = next(t for t in db.load('expense_types') if t['name'] == 'Miscellaneous')
+        db.insert('expense_tx', {
+            'date': '2026-07-06',
+            'expense_type_id': misc_type['id'],
+            'amount': 450.0,
+            'paid_to': 'Pipe Works',
+            'remarks': 'Plumbing repair',
+            'recorded_by': 'admin',
+        })
+
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        expenses_text = self.client.get('/expenses?month=2026-07').get_data(as_text=True)
+        dashboard_text = self.client.get('/?month=2026-07').get_data(as_text=True)
+        reports_text = self.client.get('/reports?month=2026-07').get_data(as_text=True)
+        csv_text = self.client.get('/reports/export/2026-07').get_data(as_text=True)
+        pdf_data = self.client.get('/reports/export/2026-07/pdf').data
+        whatsapp_text = self.client.get('/reports/share/2026-07').get_data(as_text=True)
+
+        self.assertIn('Miscellaneous', expenses_text)
+        self.assertIn('Plumbing repair', expenses_text)
+        self.assertIn('Miscellaneous', dashboard_text)
+        self.assertIn('Plumbing repair', dashboard_text)
+        self.assertIn('Miscellaneous', reports_text)
+        self.assertIn('• Plumbing repair', reports_text)
+        self.assertIn('Miscellaneous,,450.00', csv_text)
+        self.assertIn('Miscellaneous,Plumbing repair,450.00', csv_text)
+        self.assertIn(b'Miscellaneous', pdf_data)
+        self.assertIn(b'  - Plumbing repair', pdf_data)
+        self.assertIn('- Miscellaneous: Rs. 450.00', whatsapp_text)
+        self.assertIn('  - Plumbing repair: Rs. 450.00', whatsapp_text)
+
     def test_dashboard_month_filter_shows_selected_month_data(self):
         expense_type = db.load('expense_types')[0]
         maintenance_type = next(t for t in db.load('income_types') if t['name'] == 'Monthly Maintenance')
