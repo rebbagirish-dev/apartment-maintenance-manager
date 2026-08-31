@@ -3,6 +3,7 @@ import uuid
 from io import BytesIO
 from pathlib import Path
 import shutil
+from urllib.parse import parse_qs, unquote, urlparse
 from unittest import mock
 
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -472,6 +473,42 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Income - August 2026', text)
         self.assertIn('₹1500', text)
         self.assertNotIn('₹3500', text)
+
+    def test_admin_can_preview_whatsapp_monthly_report(self):
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        response = self.client.get('/reports/share/2026-07')
+        text = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'text/plain')
+        self.assertIn('*SUCASA WINDGATES*', text)
+        self.assertIn('Income and Expenditure Update - July 2026', text)
+        self.assertIn('Total Income: Rs. 2,000.00', text)
+        self.assertIn('Unpaid Maintenance: Rs. 1,500.00', text)
+        self.assertIn('Flat A-101 - Owner One: Rs. 1,500.00', text)
+
+    def test_whatsapp_share_uses_selected_month_income(self):
+        maintenance_type = next(t for t in db.load('income_types') if t['name'] == 'Monthly Maintenance')
+        db.insert('income_tx', {
+            'flat_id': self.flat_one_id,
+            'income_type_id': maintenance_type['id'],
+            'amount': 3500.0,
+            'for_month': '2026-08',
+            'status': 'paid',
+            'paid_date': '2026-07-31',
+            'remarks': 'Future month paid early',
+        })
+
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        response = self.client.get('/reports/share/2026-07/whatsapp')
+        location = response.headers.get('Location', '')
+        message = unquote(parse_qs(urlparse(location).query)['text'][0])
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(location.startswith('https://wa.me/?text='))
+        self.assertIn('Income and Expenditure Update - July 2026', message)
+        self.assertIn('Total Income: Rs. 2,000.00', message)
+        self.assertNotIn('Rs. 5,500.00', message)
 
     def test_mark_income_paid_uses_ist_default_date(self):
         tx = db.insert('income_tx', {

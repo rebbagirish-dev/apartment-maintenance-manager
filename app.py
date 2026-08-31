@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, date, timedelta
 from functools import wraps
 import textwrap
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from flask import (Flask, render_template, request, redirect, url_for,
@@ -142,6 +143,10 @@ def to_float(v, default=0.0):
         return float(v)
     except (TypeError, ValueError):
         return default
+
+
+def format_money(amount):
+    return f"Rs. {to_float(amount):,.2f}"
 
 
 def get_settings():
@@ -744,6 +749,46 @@ def month_report(ym):
         'unpaid_by_flat': unpaid_by_flat,
         'unpaid_total': sum(to_float(t['amount']) for t in unpaid),
     }
+
+
+def format_whatsapp_monthly_report(report):
+    lines = [
+        "*SUCASA WINDGATES*",
+        f"Income and Expenditure Update - {report['label']}",
+        "",
+        f"Opening Balance: {format_money(report['opening_balance'])}",
+        f"Total Income: {format_money(report['total_income'])}",
+        f"Total Expenses: {format_money(report['total_expense'])}",
+        f"Net Movement: {format_money(report['net'])}",
+        f"Closing Balance: {format_money(report['closing_balance'])}",
+        f"Unpaid Maintenance: {format_money(report['unpaid_total'])}",
+        "",
+        "*Income*",
+    ]
+
+    if report['income_by_type']:
+        for name, amount in report['income_by_type'].items():
+            lines.append(f"- {name}: {format_money(amount)}")
+    else:
+        lines.append("- No income recorded for this month")
+
+    lines.extend(["", "*Expenses*"])
+    if report['expense_by_type']:
+        for name, amount in report['expense_by_type'].items():
+            lines.append(f"- {name}: {format_money(amount)}")
+    else:
+        lines.append("- No expenses recorded for this month")
+
+    lines.extend(["", "*Flats Yet to Pay Maintenance*"])
+    if report['unpaid_by_flat']:
+        for due in report['unpaid_by_flat']:
+            owner = f" - {due['owner_name']}" if due.get('owner_name') else ""
+            lines.append(f"- Flat {due['flat_no']}{owner}: {format_money(due['amount'])}")
+    else:
+        lines.append("- All flats have paid maintenance for this month")
+
+    lines.extend(["", "Generated from Sucasa Windgates Apartment Manager."])
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -1525,6 +1570,24 @@ def export_report(ym):
     csv_data = "\n".join(lines)
     return Response(csv_data, mimetype='text/csv',
                      headers={'Content-Disposition': f'attachment; filename=report_{ym}.csv'})
+
+
+@app.route('/reports/share/<ym>')
+@login_required
+@admin_required
+def share_report_text(ym):
+    report = month_report(ym)
+    return Response(format_whatsapp_monthly_report(report),
+                    mimetype='text/plain; charset=utf-8')
+
+
+@app.route('/reports/share/<ym>/whatsapp')
+@login_required
+@admin_required
+def share_report_whatsapp(ym):
+    report = month_report(ym)
+    message = format_whatsapp_monthly_report(report)
+    return redirect(f"https://wa.me/?text={quote(message)}")
 
 
 @app.route('/reports/export/<ym>/pdf')

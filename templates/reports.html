@@ -91,6 +91,14 @@
     <a href="{{ url_for('export_report', ym=ym) }}" class="btn secondary block">Download CSV Report</a>
     <a href="{{ url_for('export_report_pdf', ym=ym) }}" class="btn secondary block">Download PDF Report</a>
   </div>
+  {% if session.role == 'admin' %}
+  <div style="margin-top:10px;">
+    <a href="{{ url_for('share_report_whatsapp', ym=ym) }}" class="btn block" target="_blank" rel="noopener">Share Monthly Update on WhatsApp</a>
+    <div style="margin-top:8px; text-align:center;">
+      <a href="{{ url_for('share_report_text', ym=ym) }}" class="small-link" target="_blank" rel="noopener">Preview share message</a>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 {% if report.unpaid_by_flat %}
