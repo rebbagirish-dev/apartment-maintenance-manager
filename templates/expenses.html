@@ -20,7 +20,7 @@
       <span data-collapsible-icon>+</span>
     </button>
   </div>
-  <form method="POST" action="{{ url_for('add_expense') }}" data-collapsible-body hidden>
+  <form method="POST" action="{{ url_for('add_expense') }}" data-collapsible-body data-expense-form hidden>
     <div class="two-col">
       <div class="form-group"><label>Date</label><input type="date" name="date" value="{{ today }}" required></div>
       <div class="form-group"><label>Amount ₹</label><input name="amount" type="number" step="0.01" required></div>
@@ -32,13 +32,24 @@
       </select>
     </div>
     <div class="form-group"><label>Paid To</label><input name="paid_to" placeholder="Vendor / person name"></div>
-    <div class="form-group"><label>Remarks / Miscellaneous Subcategory</label><input name="remarks" placeholder="e.g. Plumbing repair, Lift AMC, Cleaning supplies"></div>
+    <div class="form-group"><label>Remarks / Miscellaneous Subcategory</label><input name="remarks" placeholder="e.g. Plumbing repair, Lift AMC, Cleaning supplies"><div class="sub" style="margin-top:4px;">Enter at least Paid To or Remarks before saving.</div></div>
     <button class="btn block" type="submit">+ Save Expense</button>
   </form>
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   initCollapsibleCard('expenseEntryCard');
+  const form = document.querySelector('[data-expense-form]');
+  if (form) {
+    form.addEventListener('submit', function(event) {
+      const paidTo = form.querySelector('[name="paid_to"]').value.trim();
+      const remarks = form.querySelector('[name="remarks"]').value.trim();
+      if (!paidTo && !remarks) {
+        event.preventDefault();
+        alert('Please enter at least Paid To or Remarks for the expense.');
+      }
+    });
+  }
 });
 </script>
 {% endif %}

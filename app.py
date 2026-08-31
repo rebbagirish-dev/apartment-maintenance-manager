@@ -155,7 +155,12 @@ def is_miscellaneous_expense(type_name):
 
 
 def expense_subcategory(tx):
-    return (tx.get('remarks') or tx.get('description') or '').strip()
+    return (
+        tx.get('remarks')
+        or tx.get('description')
+        or tx.get('paid_to')
+        or 'Unspecified'
+    ).strip()
 
 
 def expense_display_name(expense_types, tx):
@@ -1512,12 +1517,18 @@ def expenses():
 @login_required
 def add_expense():
     tx_date = request.form.get('date', ist_today_iso())
+    paid_to = request.form.get('paid_to', '').strip()
+    remarks = request.form.get('remarks', '').strip()
+    if not paid_to and not remarks:
+        flash('Please enter at least Paid To or Remarks for the expense.', 'error')
+        return redirect(url_for('expenses', month=tx_date[:7]))
+
     db.insert('expense_tx', {
         'date': tx_date,
         'expense_type_id': int(request.form['expense_type_id']),
         'amount': to_float(request.form.get('amount')),
-        'paid_to': request.form.get('paid_to', '').strip(),
-        'remarks': request.form.get('remarks', '').strip(),
+        'paid_to': paid_to,
+        'remarks': remarks,
         'recorded_by': session.get('username'),
     })
     flash('Expense recorded.', 'success')

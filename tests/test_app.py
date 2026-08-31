@@ -416,6 +416,23 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('August Vendor', text)
         self.assertNotIn('July Vendor', text)
 
+    def test_expense_requires_paid_to_or_remarks(self):
+        expense_type = db.load('expense_types')[0]
+        before_count = len(db.load('expense_tx'))
+
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        response = self.client.post('/expenses/add', data={
+            'date': '2026-07-08',
+            'expense_type_id': expense_type['id'],
+            'amount': '250',
+            'paid_to': '',
+            'remarks': '',
+        }, follow_redirects=True)
+        text = response.get_data(as_text=True)
+
+        self.assertIn('Please enter at least Paid To or Remarks for the expense.', text)
+        self.assertEqual(len(db.load('expense_tx')), before_count)
+
     def test_miscellaneous_expenses_show_subcategory_from_remarks(self):
         misc_type = next(t for t in db.load('expense_types') if t['name'] == 'Miscellaneous')
         db.insert('expense_tx', {
@@ -424,6 +441,15 @@ class ResidentAccessTests(unittest.TestCase):
             'amount': 450.0,
             'paid_to': 'Pipe Works',
             'remarks': 'Plumbing repair',
+            'recorded_by': 'admin',
+        })
+        db.insert('expense_tx', {
+            'date': '2026-07-07',
+            'expense_type_id': misc_type['id'],
+            'amount': 300.0,
+            'paid_to': 'General Store',
+            'description': 'Cleaning supplies',
+            'remarks': '',
             'recorded_by': 'admin',
         })
 
@@ -441,12 +467,18 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Plumbing repair', dashboard_text)
         self.assertIn('Miscellaneous', reports_text)
         self.assertIn('• Plumbing repair', reports_text)
-        self.assertIn('Miscellaneous,,450.00', csv_text)
+        self.assertIn('Cleaning supplies', expenses_text)
+        self.assertIn('Cleaning supplies', dashboard_text)
+        self.assertIn('• Cleaning supplies', reports_text)
+        self.assertIn('Miscellaneous,,750.00', csv_text)
         self.assertIn('Miscellaneous,Plumbing repair,450.00', csv_text)
+        self.assertIn('Miscellaneous,Cleaning supplies,300.00', csv_text)
         self.assertIn(b'Miscellaneous', pdf_data)
         self.assertIn(b'  - Plumbing repair', pdf_data)
-        self.assertIn('- Miscellaneous: Rs. 450.00', whatsapp_text)
+        self.assertIn(b'  - Cleaning supplies', pdf_data)
+        self.assertIn('- Miscellaneous: Rs. 750.00', whatsapp_text)
         self.assertIn('  - Plumbing repair: Rs. 450.00', whatsapp_text)
+        self.assertIn('  - Cleaning supplies: Rs. 300.00', whatsapp_text)
 
     def test_dashboard_month_filter_shows_selected_month_data(self):
         expense_type = db.load('expense_types')[0]
