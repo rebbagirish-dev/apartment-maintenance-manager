@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, date, timedelta
 from functools import wraps
 import textwrap
+from zoneinfo import ZoneInfo
 
 from flask import (Flask, render_template, request, redirect, url_for,
                     session, flash, jsonify, Response, send_from_directory)
@@ -15,6 +16,7 @@ from seed import seed
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me-in-production')
 REMEMBER_CREDENTIALS_DAYS = 30
+IST = ZoneInfo('Asia/Kolkata')
 
 # Sessions time out after 20 minutes of inactivity. Flask refreshes the
 # cookie's expiry on every request by default, so this behaves as an idle
@@ -38,6 +40,22 @@ def login_required(view):
             return redirect(url_for('login', next=request.path))
         return view(*args, **kwargs)
     return wrapped
+
+
+def ist_now():
+    return datetime.now(IST)
+
+
+def ist_today():
+    return ist_now().date()
+
+
+def ist_today_iso():
+    return ist_today().isoformat()
+
+
+def ist_now_iso(timespec='seconds'):
+    return ist_now().isoformat(timespec=timespec)
 
 
 def admin_required(view):
@@ -102,7 +120,7 @@ def enforce_role_access():
 
 
 def current_month():
-    return date.today().strftime('%Y-%m')
+    return ist_today().strftime('%Y-%m')
 
 
 def month_label(ym):
@@ -131,9 +149,9 @@ def get_settings():
     if not records:
         records = [db.insert('settings', {
             'opening_balance': 0.0,
-            'opening_balance_date': date.today().isoformat(),
+            'opening_balance_date': ist_today_iso(),
             'opening_corpus_fund': 0.0,
-            'opening_corpus_fund_date': date.today().isoformat(),
+            'opening_corpus_fund_date': ist_today_iso(),
         })]
     return records[0]
 
@@ -195,7 +213,7 @@ def decorate_tasks(tasks):
         task['status_badge'] = task_status_badge(task.get('progress', 'Not Started'))
         task['is_completed'] = task.get('progress') == 'Completed'
         deadline = task.get('deadline') or ''
-        task['is_overdue'] = bool(deadline and deadline < date.today().isoformat() and not task['is_completed'])
+        task['is_overdue'] = bool(deadline and deadline < ist_today_iso() and not task['is_completed'])
     return tasks
 
 
@@ -212,7 +230,7 @@ def filter_tasks(tasks, status='', owner='', deadline_filter=''):
     if deadline_filter == 'overdue':
         filtered = [t for t in filtered if t.get('is_overdue')]
     elif deadline_filter == 'upcoming':
-        today_iso = date.today().isoformat()
+        today_iso = ist_today_iso()
         filtered = [t for t in filtered if t.get('deadline') and t.get('deadline') >= today_iso and not t.get('is_completed')]
     elif deadline_filter == 'no_deadline':
         filtered = [t for t in filtered if not t.get('deadline')]
@@ -310,7 +328,7 @@ LETTERHEAD_ADDRESS = "Shirdisainagar Road No.1, Manikonda, Hyderabad-500089"
 
 
 def pdf_header_and_footer_commands(title, page_number=1, total_pages=1):
-    generated_on = date.today().isoformat()
+    generated_on = ist_today_iso()
     commands = [
         "BT",
         "/F2 20 Tf",
@@ -680,7 +698,7 @@ def balance_before_month(ym):
 
 def month_report(ym):
     income_tx = [t for t in db.load('income_tx')
-                 if t.get('status') == 'paid' and str(t.get('paid_date', ''))[:7] == ym]
+                 if t.get('status') == 'paid' and t.get('for_month') == ym]
     expense_tx = [t for t in db.load('expense_tx') if t['date'][:7] == ym]
     income_types = db.load('income_types')
     expense_types = db.load('expense_types')
@@ -833,9 +851,9 @@ def settings_page():
             return redirect(url_for('settings_page'))
         db.update('settings', get_settings()['id'], {
             'opening_balance': to_float(request.form.get('opening_balance')),
-            'opening_balance_date': request.form.get('opening_balance_date') or date.today().isoformat(),
+            'opening_balance_date': request.form.get('opening_balance_date') or ist_today_iso(),
             'opening_corpus_fund': to_float(request.form.get('opening_corpus_fund')),
-            'opening_corpus_fund_date': request.form.get('opening_corpus_fund_date') or date.today().isoformat(),
+            'opening_corpus_fund_date': request.form.get('opening_corpus_fund_date') or ist_today_iso(),
         })
         flash('Opening balance & corpus fund updated.', 'success')
         return redirect(url_for('settings_page'))
@@ -857,17 +875,17 @@ def tasks():
             'deadline': request.form.get('deadline') or '',
             'progress': request.form.get('progress', 'Not Started'),
             'priority': request.form.get('priority', 'Medium'),
-            'created_date': request.form.get('created_date') or date.today().isoformat(),
+            'created_date': request.form.get('created_date') or ist_today_iso(),
             'completion_notes': request.form.get('completion_notes', '').strip(),
             'created_by': session.get('username'),
-            'updated_at': datetime.now().isoformat(),
+            'updated_at': ist_now_iso(),
         })
         flash('Task created.', 'success')
         return redirect(url_for('tasks'))
     task_list = sorted_tasks(db.load('tasks'))
     filtered_tasks = filter_tasks(task_list, status_filter, owner_filter, deadline_filter)
     return render_template('tasks.html', tasks=task_list, statuses=TASK_STATUSES,
-                            priorities=TASK_PRIORITIES, today=date.today().isoformat(),
+                            priorities=TASK_PRIORITIES, today=ist_today_iso(),
                             filtered_tasks=filtered_tasks, status_filter=status_filter,
                             owner_filter=owner_filter, deadline_filter=deadline_filter)
 
@@ -882,9 +900,9 @@ def edit_task(task_id):
         'deadline': request.form.get('deadline') or '',
         'progress': request.form.get('progress', 'Not Started'),
         'priority': request.form.get('priority', 'Medium'),
-        'created_date': request.form.get('created_date') or date.today().isoformat(),
+        'created_date': request.form.get('created_date') or ist_today_iso(),
         'completion_notes': request.form.get('completion_notes', '').strip(),
-        'updated_at': datetime.now().isoformat(),
+        'updated_at': ist_now_iso(),
     })
     flash('Task updated.', 'success')
     return redirect(url_for('tasks'))
@@ -931,7 +949,7 @@ def documents():
             'content_type': upload.mimetype or 'application/octet-stream',
             'size_bytes': os.path.getsize(save_path),
             'uploaded_by': session.get('username'),
-            'uploaded_at': datetime.now().isoformat(timespec='seconds'),
+            'uploaded_at': ist_now_iso(timespec='seconds'),
         })
         flash('Document uploaded.', 'success')
         return redirect(url_for('documents'))
@@ -1024,7 +1042,7 @@ def forum():
         if not title or not body:
             flash('Please provide both a subject and your message.', 'error')
             return redirect(url_for('forum'))
-        now = datetime.now().isoformat(timespec='seconds')
+        now = ist_now_iso(timespec='seconds')
         db.insert('forum_threads', {
             'title': title,
             'body': body,
@@ -1049,7 +1067,7 @@ def reply_forum_thread(thread_id):
     if not body:
         flash('Reply cannot be empty.', 'error')
         return redirect(url_for('forum'))
-    now = datetime.now().isoformat(timespec='seconds')
+    now = ist_now_iso(timespec='seconds')
     db.insert('forum_replies', {
         'thread_id': thread_id,
         'body': body,
@@ -1067,14 +1085,14 @@ def reply_forum_thread(thread_id):
 def corpus_fund():
     log = sorted(db.load('corpus_fund_log'), key=lambda x: x['date'], reverse=True)
     return render_template('corpus_fund.html', log=log, balance=corpus_fund_balance(),
-                            today=date.today().isoformat())
+                            today=ist_today_iso())
 
 
 @app.route('/corpus-fund/add', methods=['POST'])
 @login_required
 def add_corpus_fund_entry():
     db.insert('corpus_fund_log', {
-        'date': request.form.get('date', date.today().isoformat()),
+        'date': request.form.get('date', ist_today_iso()),
         'type': request.form['type'],  # add | withdraw
         'amount': to_float(request.form.get('amount')),
         'remarks': request.form.get('remarks', '').strip(),
@@ -1106,7 +1124,7 @@ def flats():
             'contact': request.form.get('contact', '').strip(),
             'maintenance_amount': to_float(request.form.get('maintenance_amount')),
             'status': 'active',
-            'created_at': datetime.now().isoformat(),
+            'created_at': ist_now_iso(),
         })
         flash('Flat added.', 'success')
         return redirect(url_for('flats'))
@@ -1291,7 +1309,7 @@ def income():
                             flats=visible_flats,
                             income_types=income_types_list,
                             total_paid=total_paid, total_unpaid=total_unpaid,
-                            today=date.today().isoformat(), resident_flat=resident_flat)
+                            today=ist_today_iso(), resident_flat=resident_flat)
 
 
 @app.route('/income/generate-month', methods=['POST'])
@@ -1346,7 +1364,7 @@ def add_income():
 def mark_income_paid(tx_id):
     db.update('income_tx', tx_id, {
         'status': 'paid',
-        'paid_date': request.form.get('paid_date', date.today().isoformat()),
+        'paid_date': request.form.get('paid_date', ist_today_iso()),
     })
     flash('Marked as paid.', 'success')
     return redirect(request.referrer or url_for('income'))
@@ -1387,13 +1405,13 @@ def expenses():
     total = sum(to_float(t['amount']) for t in tx)
     return render_template('expenses.html', tx=tx, ym=ym, month_label=month_label(ym),
                             expense_types=expense_types_list, total=total,
-                            today=date.today().isoformat())
+                            today=ist_today_iso())
 
 
 @app.route('/expenses/add', methods=['POST'])
 @login_required
 def add_expense():
-    tx_date = request.form.get('date', date.today().isoformat())
+    tx_date = request.form.get('date', ist_today_iso())
     db.insert('expense_tx', {
         'date': tx_date,
         'expense_type_id': int(request.form['expense_type_id']),
@@ -1425,14 +1443,14 @@ def watchman():
     advances = sum(to_float(t['amount']) for t in ledger if t['type'] == 'advance')
     recoveries = sum(to_float(t['amount']) for t in ledger if t['type'] == 'recovery')
     return render_template('watchman.html', ledger=ledger, outstanding=advances - recoveries,
-                            today=date.today().isoformat())
+                            today=ist_today_iso())
 
 
 @app.route('/watchman/add', methods=['POST'])
 @login_required
 def add_watchman_entry():
     db.insert('watchman_ledger', {
-        'date': request.form.get('date', date.today().isoformat()),
+        'date': request.form.get('date', ist_today_iso()),
         'type': request.form['type'],  # advance | recovery
         'amount': to_float(request.form.get('amount')),
         'remarks': request.form.get('remarks', '').strip(),
@@ -1601,10 +1619,10 @@ def events():
     if request.method == 'POST':
         db.insert('events', {
             'name': request.form['name'].strip(),
-            'event_date': request.form.get('event_date', date.today().isoformat()),
+            'event_date': request.form.get('event_date', ist_today_iso()),
             'description': request.form.get('description', '').strip(),
             'status': 'active',
-            'created_at': datetime.now().isoformat(),
+            'created_at': ist_now_iso(),
         })
         flash('Event created.', 'success')
         return redirect(url_for('events'))
@@ -1643,7 +1661,7 @@ def event_detail(event_id):
     return render_template('event_detail.html', event=event, contributions=contributions,
                             expenses=exp, total_contrib=total_contrib, total_exp=total_exp,
                             balance=total_contrib - total_exp, flats=sorted(flats_list, key=lambda f: f['flat_no']),
-                            today=date.today().isoformat(), resident_flat=resident_flat,
+                            today=ist_today_iso(), resident_flat=resident_flat,
                             resident_contributions=resident_contributions)
 
 
@@ -1781,7 +1799,7 @@ def add_event_contribution(event_id):
         'event_id': event_id,
         'flat_id': int(flat_id),
         'amount': to_float(request.form.get('amount')),
-        'date': request.form.get('date', date.today().isoformat()),
+        'date': request.form.get('date', ist_today_iso()),
         'remarks': request.form.get('remarks', '').strip(),
     })
     flash('Contribution recorded.', 'success')
@@ -1793,7 +1811,7 @@ def add_event_contribution(event_id):
 def add_event_expense(event_id):
     db.insert('event_expenses', {
         'event_id': event_id,
-        'date': request.form.get('date', date.today().isoformat()),
+        'date': request.form.get('date', ist_today_iso()),
         'description': request.form.get('description', '').strip(),
         'amount': to_float(request.form.get('amount')),
         'paid_to': request.form.get('paid_to', '').strip(),

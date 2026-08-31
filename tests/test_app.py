@@ -3,6 +3,7 @@ import uuid
 from io import BytesIO
 from pathlib import Path
 import shutil
+from unittest import mock
 
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -442,6 +443,54 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('July 2026', text)
         self.assertIn('Flat B-202', self.client.get('/income?month=2026-07').get_data(as_text=True))
         self.assertNotIn('August Vendor', text)
+
+    def test_dashboard_does_not_include_future_month_maintenance_paid_early(self):
+        maintenance_type = next(t for t in db.load('income_types') if t['name'] == 'Monthly Maintenance')
+        db.insert('income_tx', {
+            'flat_id': self.flat_one_id,
+            'income_type_id': maintenance_type['id'],
+            'amount': 1500.0,
+            'for_month': '2026-08',
+            'status': 'paid',
+            'paid_date': '2026-08-15',
+            'remarks': 'August maintenance',
+        })
+        db.insert('income_tx', {
+            'flat_id': self.flat_two_id,
+            'income_type_id': maintenance_type['id'],
+            'amount': 2000.0,
+            'for_month': '2026-09',
+            'status': 'paid',
+            'paid_date': '2026-08-31',
+            'remarks': 'September maintenance paid early',
+        })
+
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        response = self.client.get('/?month=2026-08')
+        text = response.get_data(as_text=True)
+
+        self.assertIn('Income - August 2026', text)
+        self.assertIn('₹1500', text)
+        self.assertNotIn('₹3500', text)
+
+    def test_mark_income_paid_uses_ist_default_date(self):
+        tx = db.insert('income_tx', {
+            'flat_id': self.flat_one_id,
+            'income_type_id': next(t for t in db.load('income_types') if t['name'] == 'Monthly Maintenance')['id'],
+            'amount': 1500.0,
+            'for_month': '2026-09',
+            'status': 'unpaid',
+            'paid_date': None,
+            'remarks': 'Pending',
+        })
+
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        with mock.patch.object(app_module, 'ist_today_iso', return_value='2026-09-01'):
+            self.client.post(f'/income/{tx["id"]}/mark-paid', data={}, follow_redirects=True)
+
+        updated = db.get('income_tx', tx['id'])
+        self.assertEqual(updated['status'], 'paid')
+        self.assertEqual(updated['paid_date'], '2026-09-01')
 
     def test_admin_can_upload_document(self):
         self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
