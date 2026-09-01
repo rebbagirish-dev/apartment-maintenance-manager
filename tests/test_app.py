@@ -410,7 +410,7 @@ class ResidentAccessTests(unittest.TestCase):
         })
 
         self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
-        response = self.client.get('/')
+        response = self.client.get('/?month=2026-08')
         text = response.get_data(as_text=True)
 
         self.assertIn('August Vendor', text)
@@ -573,6 +573,32 @@ class ResidentAccessTests(unittest.TestCase):
         self.assertIn('Income and Expenditure Update - July 2026', message)
         self.assertIn('Total Income: Rs. 2,000.00', message)
         self.assertNotIn('Rs. 5,500.00', message)
+
+    def test_report_opening_balance_excludes_current_month_income_paid_early(self):
+        maintenance_type = next(t for t in db.load('income_types') if t['name'] == 'Monthly Maintenance')
+        db.insert('income_tx', {
+            'flat_id': self.flat_one_id,
+            'income_type_id': maintenance_type['id'],
+            'amount': 2000.0,
+            'for_month': '2026-09',
+            'status': 'paid',
+            'paid_date': '2026-08-31',
+            'remarks': 'September maintenance paid early',
+        })
+
+        self.login(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
+        reports_text = self.client.get('/reports?month=2026-09').get_data(as_text=True)
+        whatsapp_text = self.client.get('/reports/share/2026-09').get_data(as_text=True)
+        report = app_module.month_report('2026-09')
+
+        self.assertIn('September 2026', reports_text)
+        self.assertIn('Opening Balance', reports_text)
+        self.assertEqual(report['opening_balance'], 2000.0)
+        self.assertEqual(report['total_income'], 2000.0)
+        self.assertEqual(report['closing_balance'], 4000.0)
+        self.assertIn('Opening Balance: Rs. 2,000.00', whatsapp_text)
+        self.assertIn('Total Income: Rs. 2,000.00', whatsapp_text)
+        self.assertIn('Closing Balance: Rs. 4,000.00', whatsapp_text)
 
     def test_mark_income_paid_uses_ist_default_date(self):
         tx = db.insert('income_tx', {

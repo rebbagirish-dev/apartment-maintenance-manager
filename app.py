@@ -177,6 +177,10 @@ def decorate_expense_tx(tx, expense_types):
     return tx
 
 
+def income_accounting_month(tx):
+    return tx.get('for_month') or (tx.get('paid_date') or '')[:7]
+
+
 def get_settings():
     records = db.load('settings')
     if not records:
@@ -720,11 +724,11 @@ def corpus_fund_balance():
 
 
 def balance_before_month(ym):
-    """Cash balance as of the last moment before the 1st of the given month,
-    including the recorded opening balance."""
+    """Report opening balance before the selected accounting month."""
     settings = get_settings()
     ob = to_float(settings.get('opening_balance'))
     ob_date = settings.get('opening_balance_date') or '0000-01-01'
+    ob_month = ob_date[:7]
 
     income_tx = db.load('income_tx')
     expense_tx = db.load('expense_tx')
@@ -732,7 +736,7 @@ def balance_before_month(ym):
 
     total_income = sum(to_float(t['amount']) for t in income_tx
                         if t.get('status') == 'paid'
-                        and ob_date <= (t.get('paid_date') or '9999-99') < f"{ym}-01")
+                        and ob_month <= income_accounting_month(t) < ym)
     total_expense = sum(to_float(t['amount']) for t in expense_tx
                          if ob_date <= t['date'] < f"{ym}-01")
     advances = sum(to_float(t['amount']) for t in watchman
